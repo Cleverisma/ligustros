@@ -78,11 +78,13 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                 if (tipoRegla === 'Franco') state = 'Franco';
                 else if (turnoHoy) state = turnoHoy;
 
-                // Hard Limit 24hs Violation -> Noche seguida de Mañana o Tarde (descanso < 24hs real)
+                // Hard Limit 24hs Violation -> Restringe rotar a un turno que empiece más temprano (Ej: Tarde->Mañana, Noche->Mañana/Tarde)
                 let isViolation = false;
-                if (ayerString && (state === 'Mañana' || state === 'Tarde')) {
+                if (ayerString && state !== 'Vacío' && state !== 'Franco') {
                     const turnoAyer = assignsByStaffAndDay[`${staffMember.id}_${ayerString}`];
-                    if (turnoAyer === 'Noche') {
+                    if (turnoAyer === 'Tarde' && state === 'Mañana') {
+                        isViolation = true;
+                    } else if (turnoAyer === 'Noche' && (state === 'Mañana' || state === 'Tarde')) {
                         isViolation = true;
                     }
                 }
@@ -113,6 +115,13 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
         });
 
         return { rows, dailyTotals };
+    });
+
+    // Detectar globalmente si hay alguna violación de descanso o francos en la tabla actual
+    const hasViolations = useComputed$(() => {
+        const hasRestViolations = dataComputed.value.rows.some(r => Object.values(r.cells).some(c => c.isViolation));
+        const hasFrancoViolations = dataComputed.value.rows.some(r => !r.francosCorrectos);
+        return { hasRestViolations, hasFrancoViolations };
     });
 
     // Acción Optimista -> Ciclar estado
@@ -221,7 +230,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                                             <button
                                                 onClick$={() => handleCellClick(row.staff.id, day.fechaString, state)}
                                                 class={`w-9 h-9 md:w-10 md:h-10 mx-auto text-[13px] flex items-center justify-center font-bold rounded-md transition-all cursor-pointer ${getCellColor(state, isViolation)}`}
-                                                title={`Asignar turno a ${row.staff.nombre} el ${day.dia}${isViolation ? ' (Alerta: Viola descanso 24hs)' : ''}`}
+                                                title={`Asignar turno a ${row.staff.nombre} el ${day.dia}${isViolation ? ' (Infracción: Regla de 24hs de descanso)' : ''}`}
                                                 type="button"
                                             >
                                                 {getCellLabel(state)}
@@ -269,6 +278,26 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                     </tfoot>
                 </table>
             </div>
+
+            {/* ERROR DE INFRACCIÓN GLOBAL EN LA PARTE INFERIOR */}
+            {(hasViolations.value.hasRestViolations || hasViolations.value.hasFrancoViolations) && (
+                <div class="px-5 py-3 bg-rose-50 border-t border-rose-200 z-40 relative shadow-inner">
+                    <div class="flex flex-col gap-1 max-w-[1200px] mx-auto text-sm text-rose-700">
+                        {hasViolations.value.hasRestViolations && (
+                            <p class="flex items-center justify-center md:justify-start gap-2">
+                                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <strong>Regla de Descanso:</strong> Existen celdas marcadas que violan la regla de 24hs entre turnos (Noche ➝ Mañana/Tarde, o Tarde ➝ Mañana).
+                            </p>
+                        )}
+                        {hasViolations.value.hasFrancoViolations && (
+                            <p class="flex items-center justify-center md:justify-start gap-2">
+                                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <strong>Regla de Francos:</strong> Hay personal que no cumple el cupo mensual exácto ({targetFrancos} francos obligatorios para un mes de {diasDelMes} días).
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 });
