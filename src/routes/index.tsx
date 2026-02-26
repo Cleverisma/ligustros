@@ -110,7 +110,7 @@ export default component$(() => {
 
   return (
     <div class="min-h-screen bg-slate-100 p-4 md:p-6 font-sans">
-      <div class="max-w-[1600px] mx-auto space-y-6">
+      <div class="w-full mx-auto space-y-6">
 
         {/* Header */}
         <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
