@@ -25,14 +25,14 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
     };
 
     return (
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div class="px-6 py-5 border-b border-slate-200 bg-white flex justify-between items-center shrink-0">
+        <div class="bg-white flex flex-col h-full overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 bg-white flex justify-between items-center shrink-0 pr-12">
                 <h2 class="text-xl font-bold tracking-tight text-slate-900">Gestión de Staff</h2>
             </div>
 
-            <div class="p-0 flex-1 flex flex-col">
+            <div class="p-0 flex-1 flex flex-col min-h-0">
                 {/* Lista de Empleados */}
-                <div class="flex-1 overflow-y-auto max-h-[400px]">
+                <div class="flex-1 overflow-y-auto">
                     {props.staffList.length === 0 ? (
                         <div class="flex flex-col items-center justify-center p-12 text-center h-full">
                             <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">

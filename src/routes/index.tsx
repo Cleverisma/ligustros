@@ -1,4 +1,4 @@
-import { component$ } from '@builder.io/qwik';
+import { component$, useSignal } from '@builder.io/qwik';
 import { routeLoader$, globalAction$, zod$, z, type DocumentHead, useLocation, Link } from '@builder.io/qwik-city';
 import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
@@ -136,14 +136,26 @@ export default component$(() => {
   const currentAnio = paramAnio ? parseInt(paramAnio) : hoy.getFullYear();
   const currentMes = paramMes ? parseInt(paramMes) : hoy.getMonth() + 1; // 1-12
 
+  const isStaffModalOpen = useSignal<boolean>(false);
+
   return (
     <div class="min-h-screen bg-slate-100 p-4 md:p-6 font-sans">
       <div class="w-full mx-auto space-y-6">
 
         {/* Header */}
-        <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900">Ligustros Sync</h1>
-          <p class="text-sm text-slate-500 mt-1">Planilla Inteligente de Gestión de Turnos (Asignación Manual)</p>
+        <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Ligustros Sync</h1>
+            <p class="text-sm text-slate-500 mt-1">Planilla Inteligente de Gestión de Turnos (Asignación Manual)</p>
+          </div>
+          <button
+            onClick$={() => isStaffModalOpen.value = true}
+            class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+            type="button"
+          >
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+            ⚙️ Gestionar Personal
+          </button>
         </header>
 
         {/* Seleccionador de Meses */}
@@ -167,8 +179,8 @@ export default component$(() => {
                   key={m}
                   href={`?anio=${currentAnio}&mes=${m}`}
                   class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${isSelected
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   {nombreMes}
@@ -187,15 +199,7 @@ export default component$(() => {
         </div>
 
         {/* Tableros Principales */}
-        <div class="flex flex-col xl:flex-row gap-6 items-start">
-
-          {/* Sidebar Izquierda (Gestión de Staff) */}
-          <div class="w-full xl:w-80 shrink-0 flex flex-col">
-            <StaffManager
-              staffList={staff.value}
-              manageAction={manageStaffAction}
-            />
-          </div>
+        <div class="flex flex-col gap-6 items-start">
 
           {/* Grid Derecha (Cuadrante Mes - Planilla Inteligente) */}
           <div class="flex-1 w-full flex flex-col overflow-hidden min-h-[600px] bg-white rounded-xl shadow-sm border border-slate-200">
@@ -212,6 +216,27 @@ export default component$(() => {
         </div>
 
       </div>
+
+      {/* Modal Overlay para Staff Manager */}
+      {isStaffModalOpen.value && (
+        <div class="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
+          <div class="w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden relative max-h-[90vh]">
+            <button
+              onClick$={() => isStaffModalOpen.value = false}
+              class="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors bg-white/50 backdrop-blur-md"
+              title="Cerrar modal"
+              type="button"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <StaffManager
+              staffList={staff.value}
+              manageAction={manageStaffAction}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 });
