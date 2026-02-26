@@ -210,7 +210,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
             {/* Barra de Herramientas (Paleta) */}
             <div class="px-5 py-3 border-b border-slate-200 bg-white flex flex-wrap items-center gap-4 shrink-0 shadow-sm relative z-10 transition-all">
-                <span class="text-sm font-bold text-slate-700 uppercase tracking-wider mr-2">Herramienta:</span>
+                <span class="text-sm font-bold text-slate-700 uppercase tracking-wider mr-2">Turnos:</span>
 
                 <button
                     onClick$={() => activeTool.value = 'Mañana'}
@@ -262,94 +262,96 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
             </div>
 
             <div class="overflow-x-auto overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white">
-                <table class="w-max min-w-full text-left border-collapse text-sm">
-                    <thead class="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-[0_1px_0_0_rgba(203,213,225,1)]">
-                        <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                            {/* Staff Column Header - Sticky Left */}
-                            <th class="px-4 py-3 border-r border-slate-200 sticky left-0 z-40 bg-slate-50 shadow-[1px_0_0_0_rgba(203,213,225,1)] w-48 min-w-[12rem]">
-                                Empleado
-                            </th>
-
-                            {/* Days Columns */}
-                            {daysData.value.map(day => (
-                                <th key={day.fechaString} class={`px-1 py-2 text-center border-r border-slate-200 min-w-[2.8rem] ${day.isWeekend ? 'bg-indigo-50/50 text-indigo-700' : ''}`}>
-                                    <div class="flex flex-col items-center justify-center h-full">
-                                        <span class="text-[9px] text-slate-400 font-medium leading-tight">{day.nombreDia}</span>
-                                        <span class="text-[13px] font-bold text-slate-700 leading-tight">{day.dia}</span>
-                                    </div>
+                <div id="roster-export-area" class="w-max min-w-full bg-white p-2">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead class="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-[0_1px_0_0_rgba(203,213,225,1)]">
+                            <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                {/* Staff Column Header - Sticky Left */}
+                                <th class="px-4 py-3 border-r border-slate-200 sticky left-0 z-40 bg-slate-50 shadow-[1px_0_0_0_rgba(203,213,225,1)] w-48 min-w-[12rem]">
+                                    Empleado
                                 </th>
+
+                                {/* Days Columns */}
+                                {daysData.value.map(day => (
+                                    <th key={day.fechaString} class={`px-1 py-2 text-center border-r border-slate-200 min-w-[2.8rem] ${day.isWeekend ? 'bg-indigo-50/50 text-indigo-700' : ''}`}>
+                                        <div class="flex flex-col items-center justify-center h-full">
+                                            <span class="text-[9px] text-slate-400 font-medium leading-tight">{day.nombreDia}</span>
+                                            <span class="text-[13px] font-bold text-slate-700 leading-tight">{day.dia}</span>
+                                        </div>
+                                    </th>
+                                ))}
+
+                                {/* Francos Total Column - Sticky Right */}
+                                <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-slate-600 w-16 select-none" title={`Objetivo: ${targetFrancos.value} francos libres`}>
+                                    Σ F. ({targetFrancos.value})
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-700 relative z-0">
+                            {dataComputed.value.rows.map(row => (
+                                <tr key={row.staff.id} class="group hover:bg-slate-50/50 transition-colors h-11">
+
+                                    {/* Staff Name - Sticky Left */}
+                                    <td class="px-4 py-1.5 border-r border-slate-200 bg-white group-hover:bg-slate-50/80 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(241,245,249,1)]">
+                                        <div class="font-medium truncate text-slate-800 text-[13px]" title={row.staff.nombre}>{row.staff.nombre}</div>
+                                    </td>
+
+                                    {/* Interactive Cells ~40x40px */}
+                                    {daysData.value.map(day => {
+                                        const { state, isViolation } = row.cells[day.fechaString];
+                                        return (
+                                            <td key={`${row.staff.id}-${day.fechaString}`} class={`p-1 border-r border-slate-100 text-center align-middle ${day.isWeekend ? 'bg-indigo-50/20' : ''}`}>
+                                                <button
+                                                    onClick$={() => handleCellClick(row.staff.id, day.fechaString, state)}
+                                                    class={`w-9 h-9 md:w-10 md:h-10 mx-auto text-[13px] flex items-center justify-center font-bold rounded-md transition-all cursor-pointer ${getCellColor(state, isViolation)}`}
+                                                    title={`Asignar turno a ${row.staff.nombre} el ${day.dia}${isViolation ? ' (Infracción: Regla de 24hs de descanso)' : ''}`}
+                                                    type="button"
+                                                >
+                                                    {getCellLabel(state)}
+                                                </button>
+                                            </td>
+                                        )
+                                    })}
+
+                                    {/* Validación 1: Francos Totales - Sticky Right */}
+                                    <td class="px-3 py-2 bg-white group-hover:bg-slate-50/80 sticky right-0 z-20 shadow-[-1px_0_0_0_rgba(241,245,249,1)] align-middle text-center w-16">
+                                        <span class={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${row.francosCorrectos ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                            {row.francosTotales}
+                                        </span>
+                                    </td>
+                                </tr>
                             ))}
+                        </tbody>
 
-                            {/* Francos Total Column - Sticky Right */}
-                            <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-slate-600 w-16 select-none" title={`Objetivo: ${targetFrancos.value} francos libres`}>
-                                Σ F. ({targetFrancos.value})
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700 relative z-0">
-                        {dataComputed.value.rows.map(row => (
-                            <tr key={row.staff.id} class="group hover:bg-slate-50/50 transition-colors h-11">
+                        {/* FOOTER : Validación 2: Cobertura Diaria */}
+                        <tfoot class="sticky bottom-0 z-30 bg-white border-t border-slate-300 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)]">
+                            <tr class="tracking-tight border-b border-slate-200 shadow-sm">
+                                <th class="px-4 py-3 border-r border-slate-300 sticky left-0 z-40 bg-slate-100 shadow-[1px_0_0_0_rgba(203,213,225,1)] text-xs font-bold text-right text-slate-700">
+                                    Cobertura Requerida
+                                </th>
 
-                                {/* Staff Name - Sticky Left */}
-                                <td class="px-4 py-1.5 border-r border-slate-200 bg-white group-hover:bg-slate-50/80 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(241,245,249,1)]">
-                                    <div class="font-medium truncate text-slate-800 text-[13px]" title={row.staff.nombre}>{row.staff.nombre}</div>
-                                </td>
-
-                                {/* Interactive Cells ~40x40px */}
                                 {daysData.value.map(day => {
-                                    const { state, isViolation } = row.cells[day.fechaString];
+                                    const totals = dataComputed.value.dailyTotals[day.fechaString];
+                                    const mOk = totals.M >= 5 && totals.M <= 6;
+                                    const tOk = totals.T >= 5 && totals.T <= 6;
+                                    const nOk = totals.N === 2;
+
                                     return (
-                                        <td key={`${row.staff.id}-${day.fechaString}`} class={`p-1 border-r border-slate-100 text-center align-middle ${day.isWeekend ? 'bg-indigo-50/20' : ''}`}>
-                                            <button
-                                                onClick$={() => handleCellClick(row.staff.id, day.fechaString, state)}
-                                                class={`w-9 h-9 md:w-10 md:h-10 mx-auto text-[13px] flex items-center justify-center font-bold rounded-md transition-all cursor-pointer ${getCellColor(state, isViolation)}`}
-                                                title={`Asignar turno a ${row.staff.nombre} el ${day.dia}${isViolation ? ' (Infracción: Regla de 24hs de descanso)' : ''}`}
-                                                type="button"
-                                            >
-                                                {getCellLabel(state)}
-                                            </button>
+                                        <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 text-center bg-slate-50/80 backdrop-blur align-middle">
+                                            <div class="flex flex-col items-center justify-center gap-1 text-[10px] font-mono leading-none font-semibold">
+                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>M:{totals.M}</span>
+                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 text-orange-700" : "bg-rose-100 text-rose-700"}`}>T:{totals.T}</span>
+                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 text-indigo-700" : "bg-rose-100 text-rose-700"}`}>N:{totals.N}</span>
+                                            </div>
                                         </td>
                                     )
                                 })}
 
-                                {/* Validación 1: Francos Totales - Sticky Right */}
-                                <td class="px-3 py-2 bg-white group-hover:bg-slate-50/80 sticky right-0 z-20 shadow-[-1px_0_0_0_rgba(241,245,249,1)] align-middle text-center w-16">
-                                    <span class={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${row.francosCorrectos ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                        {row.francosTotales}
-                                    </span>
-                                </td>
+                                <th class="px-3 py-2 sticky right-0 z-40 bg-slate-100 border-l border-slate-300 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-xs text-slate-500 font-medium"></th>
                             </tr>
-                        ))}
-                    </tbody>
-
-                    {/* FOOTER : Validación 2: Cobertura Diaria */}
-                    <tfoot class="sticky bottom-0 z-30 bg-white border-t border-slate-300 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)]">
-                        <tr class="tracking-tight border-b border-slate-200 shadow-sm">
-                            <th class="px-4 py-3 border-r border-slate-300 sticky left-0 z-40 bg-slate-100 shadow-[1px_0_0_0_rgba(203,213,225,1)] text-xs font-bold text-right text-slate-700">
-                                Cobertura Requerida
-                            </th>
-
-                            {daysData.value.map(day => {
-                                const totals = dataComputed.value.dailyTotals[day.fechaString];
-                                const mOk = totals.M >= 5 && totals.M <= 6;
-                                const tOk = totals.T >= 5 && totals.T <= 6;
-                                const nOk = totals.N === 2;
-
-                                return (
-                                    <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 text-center bg-slate-50/80 backdrop-blur align-middle">
-                                        <div class="flex flex-col items-center justify-center gap-1 text-[10px] font-mono leading-none font-semibold">
-                                            <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>M:{totals.M}</span>
-                                            <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 text-orange-700" : "bg-rose-100 text-rose-700"}`}>T:{totals.T}</span>
-                                            <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 text-indigo-700" : "bg-rose-100 text-rose-700"}`}>N:{totals.N}</span>
-                                        </div>
-                                    </td>
-                                )
-                            })}
-
-                            <th class="px-3 py-2 sticky right-0 z-40 bg-slate-100 border-l border-slate-300 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-xs text-slate-500 font-medium"></th>
-                        </tr>
-                    </tfoot>
-                </table>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
 
             {/* ERROR DE INFRACCIÓN GLOBAL EN LA PARTE INFERIOR */}

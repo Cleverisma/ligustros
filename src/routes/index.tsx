@@ -1,4 +1,4 @@
-import { component$, useSignal } from '@builder.io/qwik';
+import { component$, useSignal, $ } from '@builder.io/qwik';
 import { routeLoader$, globalAction$, zod$, z, type DocumentHead, useLocation, Link } from '@builder.io/qwik-city';
 import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
@@ -148,14 +148,51 @@ export default component$(() => {
             <h1 class="text-2xl font-bold tracking-tight text-slate-900">Ligustros Sync</h1>
             <p class="text-sm text-slate-500 mt-1">Planilla Inteligente de Gestión de Turnos (Asignación Manual)</p>
           </div>
-          <button
-            onClick$={() => isStaffModalOpen.value = true}
-            class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
-            type="button"
-          >
-            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-            ⚙️ Gestionar Personal
-          </button>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button
+              onClick$={$(async () => {
+                const html2canvas = (await import('html2canvas-pro')).default;
+                const node = document.getElementById('roster-export-area');
+                if (node) {
+                  // Agregamos feedback visual de carga
+                  const originalCursor = document.body.style.cursor;
+                  document.body.style.cursor = 'wait';
+
+                  try {
+                    const canvas = await html2canvas(node, {
+                      backgroundColor: '#ffffff',
+                      scale: 2,
+                      width: node.scrollWidth,
+                      height: node.scrollHeight
+                    });
+
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = `turnos-ligustros-${currentAnio}-${String(currentMes).padStart(2, '0')}.png`;
+                    link.href = dataUrl;
+                    link.click();
+                  } catch (err) {
+                    console.error('Error exportando png:', err);
+                  } finally {
+                    document.body.style.cursor = originalCursor;
+                  }
+                }
+              })}
+              class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-emerald-300 rounded-lg text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+              type="button"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+              📸 Compartir por WhatsApp
+            </button>
+            <button
+              onClick$={() => isStaffModalOpen.value = true}
+              class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+              type="button"
+            >
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+              ⚙️ Gestionar Personal
+            </button>
+          </div>
         </header>
 
         {/* Seleccionador de Meses */}

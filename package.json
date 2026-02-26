@@ -55,6 +55,7 @@
   "nx": {},
   "dependencies": {
     "@libsql/client": "latest",
-    "cssnano": "^7.1.2"
+    "cssnano": "^7.1.2",
+    "html2canvas-pro": "^2.0.2"
   }
 }
