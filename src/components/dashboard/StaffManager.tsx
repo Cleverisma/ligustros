@@ -8,85 +8,122 @@ interface StaffManagerProps {
 }
 
 export const StaffManager = component$<StaffManagerProps>((props) => {
+
+    // Función helper estática para el color del badge basado en el string "rol"
+    const getBadgeStyle = (rol: string) => {
+        const rolNormalizado = (rol || '').toLowerCase().trim();
+        if (rolNormalizado.includes('enfermeri') || rolNormalizado.includes('enfermera') || rolNormalizado.includes('medico')) {
+            return "bg-emerald-100 text-emerald-800 border-emerald-200";
+        }
+        if (rolNormalizado.includes('maestranza') || rolNormalizado.includes('limpieza') || rolNormalizado.includes('mantenimiento')) {
+            return "bg-orange-100 text-orange-800 border-orange-200";
+        }
+        if (rolNormalizado.includes('cocin')) {
+            return "bg-blue-100 text-blue-800 border-blue-200";
+        }
+        return "bg-slate-100 text-slate-800 border-slate-200"; // Default
+    };
+
     return (
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h2 class="text-xl font-semibold text-slate-800">Gestión de Staff</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-slate-200 bg-white flex justify-between items-center shrink-0">
+                <h2 class="text-xl font-bold tracking-tight text-slate-900">Gestión de Staff</h2>
             </div>
 
-            <div class="p-6">
+            <div class="p-0 flex-1 flex flex-col">
                 {/* Lista de Empleados */}
-                <div class="mb-8">
-                    <ul class="divide-y divide-slate-100">
-                        {props.staffList.length === 0 ? (
-                            <li class="py-4 text-slate-500 text-sm italic">No hay empleados registrados.</li>
-                        ) : (
-                            props.staffList.map((empleado) => (
-                                <li key={empleado.id} class="py-3 flex justify-between items-center group">
-                                    <div>
-                                        <p class="font-medium text-slate-800">{empleado.nombre}</p>
-                                        <p class="text-sm text-slate-500">{empleado.rol || 'Sin rol específico'}</p>
+                <div class="flex-1 overflow-y-auto max-h-[400px]">
+                    {props.staffList.length === 0 ? (
+                        <div class="flex flex-col items-center justify-center p-12 text-center h-full">
+                            <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
+                                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-base font-semibold text-slate-900">Directorio Vacío</h3>
+                            <p class="mt-1 text-sm text-slate-500 max-w-[200px]">Comienza agregando miembros al staff para autogenerar turnos.</p>
+                        </div>
+                    ) : (
+                        <ul class="divide-y divide-slate-100">
+                            {props.staffList.map((empleado) => (
+                                <li key={empleado.id} class="px-6 py-4 flex flex-col xl:flex-row justify-between xl:items-center gap-3 group hover:bg-slate-50/80 transition-colors">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold tracking-tight text-slate-900 truncate">
+                                            {empleado.nombre}
+                                        </p>
+                                        <div class="mt-1.5 flex items-center">
+                                            <span class={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium border ${getBadgeStyle(empleado.rol)} capitalize tracking-wide`}>
+                                                {empleado.rol || 'General'}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <Form action={props.manageAction}>
+                                    <Form action={props.manageAction} class="shrink-0 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
                                         <input type="hidden" name="action" value="remove" />
                                         <input type="hidden" name="id" value={empleado.id} />
                                         <button
                                             type="submit"
-                                            class="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 bg-transparent rounded-md transition-colors text-sm"
+                                            class="inline-flex items-center justify-center p-2 text-red-500 hover:text-red-700 hover:bg-red-50 bg-white border border-transparent rounded-lg transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
+                                            title="Remover Empleado"
                                         >
-                                            Eliminar
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                         </button>
                                     </Form>
                                 </li>
-                            ))
-                        )}
-                    </ul>
+                            ))}
+                        </ul>
+                    )}
                 </div>
 
                 {/* Formulario de Alta */}
-                <div class="pt-6 border-t border-slate-100">
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-4">Agregar Nuevo Empleado</h3>
+                <div class="p-6 border-t border-slate-200 bg-slate-50 shrink-0">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                        <span>Agregar Miembro</span>
+                    </h3>
                     <Form action={props.manageAction} class="space-y-4">
                         <input type="hidden" name="action" value="add" />
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="space-y-4">
                             <div>
-                                <label for="nombre" class="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
+                                <label for="nombre" class="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">Nombre Completo</label>
                                 <input
                                     type="text"
                                     id="nombre"
                                     name="nombre"
                                     required
-                                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
                                     placeholder="Ej: María López"
                                 />
                             </div>
                             <div>
-                                <label for="rol" class="block text-sm font-medium text-slate-700 mb-1">Rol / Puesto</label>
+                                <label for="rol" class="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">Rol / Especialidad</label>
                                 <input
                                     type="text"
                                     id="rol"
                                     name="rol"
-                                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Ej: Enfermera de Planta"
+                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                                    placeholder="Ej: Enfermería"
                                 />
                             </div>
                         </div>
 
-                        <div class="flex justify-end">
+                        <div class="pt-2">
                             <button
                                 type="submit"
-                                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors text-sm font-medium"
+                                class="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                             >
-                                Agregar Empleado
+                                Guardar Empleado
                             </button>
                         </div>
 
                         {props.manageAction.value?.success && (
-                            <p class="text-green-600 text-sm mt-2">{props.manageAction.value.message}</p>
+                            <div class="p-3 bg-emerald-50 rounded-lg border border-emerald-100 mt-3 text-center">
+                                <p class="text-emerald-700 text-xs font-medium">{props.manageAction.value.message}</p>
+                            </div>
                         )}
                         {props.manageAction.value?.failed && (
-                            <p class="text-red-600 text-sm mt-2">{props.manageAction.value.message}</p>
+                            <div class="p-3 bg-red-50 rounded-lg border border-red-100 mt-3 text-center">
+                                <p class="text-red-700 text-xs font-medium">{props.manageAction.value.message}</p>
+                            </div>
                         )}
                     </Form>
                 </div>
