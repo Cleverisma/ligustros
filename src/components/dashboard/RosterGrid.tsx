@@ -47,14 +47,15 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
         localRules.value = [...serverRules];
     });
 
-    const diasDelMes = new Date(props.anio, props.mes, 0).getDate();
+    const diasDelMes = useComputed$(() => new Date(props.anio, props.mes, 0).getDate());
     // Objetivo de francos dinámico: 6 para meses de 30 días, 7 para meses de 31
-    const targetFrancos = diasDelMes === 31 ? 7 : 6;
+    const targetFrancos = useComputed$(() => diasDelMes.value === 31 ? 7 : 6);
 
     // Configuración de los días del mes
     const daysData = useComputed$(() => {
         const days = [];
-        for (let dia = 1; dia <= diasDelMes; dia++) {
+        const maxDias = diasDelMes.value;
+        for (let dia = 1; dia <= maxDias; dia++) {
             const fecha = new Date(props.anio, props.mes - 1, dia);
             const nombreDia = new Intl.DateTimeFormat('es-AR', { weekday: 'short' }).format(fecha);
             const fechaString = `${props.anio}-${String(props.mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
@@ -81,12 +82,14 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
         rules.forEach(r => { rulesByStaffAndDay[`${r.staff_id}_${r.fecha}`] = r.tipo; });
 
         // 2. Filas (Empleados)
+        const maxDias = diasDelMes.value;
+        const targetF = targetFrancos.value;
         const rows = props.staffList.map(staffMember => {
             const francosCount = rules.filter(r => r.staff_id === staffMember.id && r.tipo === 'Franco').length;
 
             const cellData: Record<string, { state: string; isViolation: boolean }> = {};
 
-            for (let dia = 1; dia <= diasDelMes; dia++) {
+            for (let dia = 1; dia <= maxDias; dia++) {
                 // Format dates inline to avoid serialization issues with closures in Qwik
                 const fechaString = `${props.anio}-${String(props.mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
                 const ayerString = dia > 1 ? `${props.anio}-${String(props.mes).padStart(2, '0')}-${String(dia - 1).padStart(2, '0')}` : null;
@@ -115,7 +118,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
             return {
                 staff: staffMember,
                 francosTotales: francosCount,
-                francosCorrectos: francosCount === targetFrancos, // Validación 1
+                francosCorrectos: francosCount === targetF, // Validación 1
                 cells: cellData
             };
         });
@@ -278,8 +281,8 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                             ))}
 
                             {/* Francos Total Column - Sticky Right */}
-                            <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-slate-600 w-16 select-none" title={`Objetivo: ${targetFrancos} francos libres`}>
-                                Σ F. ({targetFrancos})
+                            <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-slate-600 w-16 select-none" title={`Objetivo: ${targetFrancos.value} francos libres`}>
+                                Σ F. ({targetFrancos.value})
                             </th>
                         </tr>
                     </thead>
@@ -362,7 +365,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                         {hasViolations.value.hasFrancoViolations && (
                             <p class="flex items-center justify-center md:justify-start gap-2">
                                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                <strong>Regla de Francos:</strong> Hay personal que no cumple el cupo mensual exácto ({targetFrancos} francos obligatorios para un mes de {diasDelMes} días).
+                                <strong>Regla de Francos:</strong> Hay personal que no cumple el cupo mensual exácto ({targetFrancos.value} francos obligatorios para un mes de {diasDelMes.value} días).
                             </p>
                         )}
                     </div>
