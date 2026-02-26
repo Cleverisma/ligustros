@@ -106,7 +106,7 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
                                     id="rol"
                                     name="rol"
                                     class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                                    placeholder="Ej: Enfermería"
+                                    placeholder="Ej: Enfermería o Franquero"
                                 />
                             </div>
                         </div>

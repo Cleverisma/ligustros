@@ -1,5 +1,5 @@
 import { component$ } from '@builder.io/qwik';
-import { routeLoader$, globalAction$, zod$, z, type DocumentHead } from '@builder.io/qwik-city';
+import { routeLoader$, globalAction$, zod$, z, type DocumentHead, useLocation, Link } from '@builder.io/qwik-city';
 import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
 import { RosterGrid } from '../components/dashboard/RosterGrid';
@@ -14,20 +14,44 @@ export const useStaffLoader = routeLoader$(async (requestEvent) => {
 
 export const useAssignmentsLoader = routeLoader$(async (requestEvent) => {
   const db = getDbClient(requestEvent.env);
-  const result = await db.execute(`
-    SELECT * FROM turnos_asignados 
-    WHERE strftime('%Y-%m', dia) = strftime('%Y-%m', 'now') 
-    ORDER BY dia ASC
-  `);
+  const url = requestEvent.url;
+  const mesParam = url.searchParams.get('mes');
+  const anioParam = url.searchParams.get('anio');
+
+  const hoy = new Date();
+  const anio = anioParam ? parseInt(anioParam) : hoy.getFullYear();
+  const mes = mesParam ? parseInt(mesParam) : hoy.getMonth() + 1;
+  const targetMonthStr = `${anio}-${String(mes).padStart(2, '0')}`;
+
+  const result = await db.execute({
+    sql: `
+      SELECT * FROM turnos_asignados 
+      WHERE strftime('%Y-%m', dia) = ? 
+      ORDER BY dia ASC
+    `,
+    args: [targetMonthStr]
+  });
   return result.rows as unknown as TurnoAsignado[];
 });
 
 export const useRulesLoader = routeLoader$(async (requestEvent) => {
   const db = getDbClient(requestEvent.env);
-  const result = await db.execute(`
-    SELECT * FROM reglas_disponibilidad
-    WHERE strftime('%Y-%m', fecha) = strftime('%Y-%m', 'now')
-  `);
+  const url = requestEvent.url;
+  const mesParam = url.searchParams.get('mes');
+  const anioParam = url.searchParams.get('anio');
+
+  const hoy = new Date();
+  const anio = anioParam ? parseInt(anioParam) : hoy.getFullYear();
+  const mes = mesParam ? parseInt(mesParam) : hoy.getMonth() + 1;
+  const targetMonthStr = `${anio}-${String(mes).padStart(2, '0')}`;
+
+  const result = await db.execute({
+    sql: `
+      SELECT * FROM reglas_disponibilidad
+      WHERE strftime('%Y-%m', fecha) = ?
+    `,
+    args: [targetMonthStr]
+  });
   return result.rows as unknown as ReglaDisponibilidad[];
 });
 
@@ -98,6 +122,7 @@ export const useToggleShiftAction = globalAction$(
 
 // Main Dashboard Page
 export default component$(() => {
+  const loc = useLocation();
   const staff = useStaffLoader();
   const assignments = useAssignmentsLoader();
   const rules = useRulesLoader();
@@ -105,8 +130,11 @@ export default component$(() => {
   const toggleShiftAction = useToggleShiftAction();
 
   const hoy = new Date();
-  const currentAnio = hoy.getFullYear();
-  const currentMes = hoy.getMonth() + 1; // 1-12
+  const paramAnio = loc.url.searchParams.get('anio');
+  const paramMes = loc.url.searchParams.get('mes');
+
+  const currentAnio = paramAnio ? parseInt(paramAnio) : hoy.getFullYear();
+  const currentMes = paramMes ? parseInt(paramMes) : hoy.getMonth() + 1; // 1-12
 
   return (
     <div class="min-h-screen bg-slate-100 p-4 md:p-6 font-sans">
@@ -117,6 +145,46 @@ export default component$(() => {
           <h1 class="text-2xl font-bold tracking-tight text-slate-900">Ligustros Sync</h1>
           <p class="text-sm text-slate-500 mt-1">Planilla Inteligente de Gestión de Turnos (Asignación Manual)</p>
         </header>
+
+        {/* Seleccionador de Meses */}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto custom-scrollbar">
+          <div class="flex items-center gap-2 min-w-max px-2">
+            <Link
+              href={`?anio=${currentAnio - 1}&mes=12`}
+              class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Año Anterior"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </Link>
+
+            <span class="font-bold text-slate-700 mx-2 text-lg">{currentAnio}</span>
+
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+              const isSelected = m === currentMes;
+              const nombreMes = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(new Date(2000, m - 1, 1));
+              return (
+                <Link
+                  key={m}
+                  href={`?anio=${currentAnio}&mes=${m}`}
+                  class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${isSelected
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                >
+                  {nombreMes}
+                </Link>
+              );
+            })}
+
+            <Link
+              href={`?anio=${currentAnio + 1}&mes=1`}
+              class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Año Siguiente"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </Link>
+          </div>
+        </div>
 
         {/* Tableros Principales */}
         <div class="flex flex-col xl:flex-row gap-6 items-start">
