@@ -1,4 +1,4 @@
-import { component$, useComputed$, $, useSignal, useTask$ } from '@builder.io/qwik';
+import { component$, useComputed$, $, useSignal, useTask$, useOnDocument } from '@builder.io/qwik';
 import type { ActionStore } from '@builder.io/qwik-city';
 import type { TurnoAsignado, Staff, ReglaDisponibilidad } from '../../types';
 
@@ -12,6 +12,26 @@ interface RosterGridProps {
 }
 
 export const RosterGrid = component$<RosterGridProps>((props) => {
+
+    // Paleta de Herramientas (Pincel Activo)
+    const activeTool = useSignal<'Mañana' | 'Tarde' | 'Noche' | 'Franco' | 'Vacío'>('Mañana');
+
+    // Atajos de teclado para Power Users
+    useOnDocument('keydown', $((event: KeyboardEvent) => {
+        const target = event.target as HTMLElement;
+        if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+
+        const key = event.key.toLowerCase();
+        switch (key) {
+            case 'm': activeTool.value = 'Mañana'; break;
+            case 't': activeTool.value = 'Tarde'; break;
+            case 'n': activeTool.value = 'Noche'; break;
+            case 'f': activeTool.value = 'Franco'; break;
+            case 'x':
+            case 'delete':
+            case 'backspace': activeTool.value = 'Vacío'; break;
+        }
+    }));
 
     // ESTADO OPTIMISTA (Latencia Cero)
     // Sincronizamos las props del servidor en signals locales.
@@ -124,11 +144,11 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
         return { hasRestViolations, hasFrancoViolations };
     });
 
-    // Acción Optimista -> Ciclar estado
+    // Acción Optimista -> Pintar con herramienta activa
     const handleCellClick = $((staffId: string, fecha: string, currentState: string) => {
-        const sequence = ['Vacío', 'Mañana', 'Tarde', 'Noche', 'Franco'];
-        const currentIndex = sequence.indexOf(currentState);
-        const nextState = sequence[(currentIndex + 1) % sequence.length];
+        const nextState = activeTool.value;
+
+        if (currentState === nextState) return;
 
         // Múltiples mutaciones síncronas para respuesta <1ms en UI
         localAssignments.value = localAssignments.value.filter(a => !(a.staff_id === staffId && a.dia === fecha));
@@ -180,12 +200,62 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                     <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     Planilla de Asignación <span class="text-slate-500 font-medium ml-2">| {new Intl.DateTimeFormat('es-AR', { month: 'short', year: 'numeric' }).format(new Date(props.anio, props.mes - 1, 1)).toUpperCase()}</span>
                 </h2>
-                <div class="flex flex-wrap gap-4 text-xs font-semibold text-slate-600 uppercase tracking-widest">
-                    <span class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200"></div> Mañana (5-6)</span>
-                    <span class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-orange-100 border border-orange-200"></div> Tarde (5-6)</span>
-                    <span class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-sm bg-indigo-100 border border-indigo-200"></div> Noche (2)</span>
-                    <span class="flex items-center gap-1.5 text-rose-600"><div class="w-3 h-3 rounded-sm border-2 border-rose-500"></div> Descanso &lt; 24h</span>
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-600 uppercase tracking-widest">
+                    <div class="w-3 h-3 rounded-sm border-2 border-rose-500"></div> Descanso &lt; 24h
                 </div>
+            </div>
+
+            {/* Barra de Herramientas (Paleta) */}
+            <div class="px-5 py-3 border-b border-slate-200 bg-white flex flex-wrap items-center gap-4 shrink-0 shadow-sm relative z-10 transition-all">
+                <span class="text-sm font-bold text-slate-700 uppercase tracking-wider mr-2">Herramienta:</span>
+
+                <button
+                    onClick$={() => activeTool.value = 'Mañana'}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Mañana' ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-emerald-50 text-slate-600'}`}
+                    title="Atajo de teclado: M"
+                    type="button"
+                >
+                    <div class="w-3 h-3 rounded-sm bg-emerald-400 shadow-inner"></div> Mañana <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-emerald-700 font-bold shadow-sm">M</kbd>
+                </button>
+
+                <button
+                    onClick$={() => activeTool.value = 'Tarde'}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Tarde' ? 'bg-orange-100 text-orange-800 ring-2 ring-orange-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-orange-50 text-slate-600'}`}
+                    title="Atajo de teclado: T"
+                    type="button"
+                >
+                    <div class="w-3 h-3 rounded-sm bg-orange-400 shadow-inner"></div> Tarde <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-orange-700 font-bold shadow-sm">T</kbd>
+                </button>
+
+                <button
+                    onClick$={() => activeTool.value = 'Noche'}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Noche' ? 'bg-indigo-100 text-indigo-800 ring-2 ring-indigo-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-indigo-50 text-slate-600'}`}
+                    title="Atajo de teclado: N"
+                    type="button"
+                >
+                    <div class="w-3 h-3 rounded-sm bg-indigo-400 shadow-inner"></div> Noche <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-indigo-700 font-bold shadow-sm">N</kbd>
+                </button>
+
+                <button
+                    onClick$={() => activeTool.value = 'Franco'}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Franco' ? 'bg-zinc-200 text-zinc-900 ring-2 ring-zinc-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-zinc-200 text-slate-600'}`}
+                    title="Atajo de teclado: F"
+                    type="button"
+                >
+                    <div class="w-3 h-3 rounded-sm bg-zinc-400 shadow-inner"></div> Franco <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-zinc-800 font-bold shadow-sm">F</kbd>
+                </button>
+
+                <div class="w-px h-8 bg-slate-300 mx-2"></div>
+
+                <button
+                    onClick$={() => activeTool.value = 'Vacío'}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Vacío' ? 'bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-rose-50 text-slate-600'}`}
+                    title="Atajo de teclado: X, Suprimir o Esc"
+                    type="button"
+                >
+                    <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Borrar <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-rose-700 font-bold shadow-sm">X</kbd>
+                </button>
             </div>
 
             <div class="overflow-x-auto overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white">
