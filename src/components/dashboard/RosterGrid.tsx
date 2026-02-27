@@ -173,15 +173,16 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
     const getCellColor = (state: string, isViolation: boolean) => {
         const base = isViolation
-            ? 'ring-2 ring-rose-500 ring-inset shadow-[0_0_8px_rgba(244,63,94,0.4)] z-10 relative '
+            ? 'ring-2 ring-rose-500 dark:ring-rose-400 ring-inset shadow-[0_0_8px_rgba(244,63,94,0.4)] z-10 relative '
             : '';
 
         switch (state) {
-            case 'Mañana': return base + 'bg-emerald-100/90 text-emerald-800 hover:bg-emerald-200 border-emerald-200';
-            case 'Tarde': return base + 'bg-orange-100/90 text-orange-800 hover:bg-orange-200 border-orange-200';
-            case 'Noche': return base + 'bg-indigo-100/90 text-indigo-800 hover:bg-indigo-200 border-indigo-200';
-            case 'Franco': return base + 'bg-zinc-200/80 text-zinc-600 hover:bg-zinc-300 border-zinc-300 font-medium';
-            default: return base + 'bg-transparent text-slate-300 hover:bg-slate-100 border-transparent';
+            case 'Mañana': return base + 'bg-emerald-100/90 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/60 border-emerald-200 dark:border-emerald-800/50';
+            case 'Tarde': return base + 'bg-orange-100/90 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/60 border-orange-200 dark:border-orange-800/50';
+            case 'Noche': return base + 'bg-indigo-100/90 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/60 border-indigo-200 dark:border-indigo-800/50';
+            case 'Franco': return base + 'bg-zinc-200/80 dark:bg-slate-700/80 text-zinc-600 dark:text-slate-300 hover:bg-zinc-300 dark:hover:bg-slate-600 border-zinc-300 dark:border-slate-600 font-medium';
+            case 'Vacío': return base + 'bg-transparent text-transparent hover:bg-slate-100 dark:hover:bg-slate-800/50 border-transparent';
+            default: return base + 'bg-transparent text-slate-300 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800/50 border-transparent';
         }
     };
 
@@ -196,111 +197,111 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
     };
 
     return (
-        <div class="flex flex-col h-full bg-white">
+        <div class="flex flex-col h-full bg-white dark:bg-slate-900 transition-colors">
             {/* Cabecera / Leyenda */}
-            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
-                <h2 class="font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between items-center shrink-0 transition-colors">
+                <h2 class="font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
                     <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    Planilla de Asignación <span class="text-slate-500 font-medium ml-2">| {new Intl.DateTimeFormat('es-AR', { month: 'short', year: 'numeric' }).format(new Date(props.anio, props.mes - 1, 1)).toUpperCase()}</span>
+                    Planilla de Asignación <span class="text-slate-500 dark:text-slate-400 font-medium ml-2">| {new Intl.DateTimeFormat('es-AR', { month: 'short', year: 'numeric' }).format(new Date(props.anio, props.mes - 1, 1)).toUpperCase()}</span>
                 </h2>
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-600 uppercase tracking-widest">
-                    <div class="w-3 h-3 rounded-sm border-2 border-rose-500"></div> Descanso &lt; 24h
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-widest">
+                    <div class="w-3 h-3 rounded-sm border-2 border-rose-500 dark:border-rose-400"></div> Descanso &lt; 24h
                 </div>
             </div>
 
             {/* Barra de Herramientas (Paleta) */}
-            <div class="px-5 py-3 border-b border-slate-200 bg-white flex flex-wrap items-center gap-4 shrink-0 shadow-sm relative z-10 transition-all">
-                <span class="text-sm font-bold text-slate-700 uppercase tracking-wider mr-2">Turnos:</span>
+            <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center gap-4 shrink-0 shadow-sm relative z-10 transition-colors">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mr-2">Turnos:</span>
 
                 <button
                     onClick$={() => activeTool.value = 'Mañana'}
-                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Mañana' ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-emerald-50 text-slate-600'}`}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Mañana' ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900 shadow-md scale-105' : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-600 dark:text-slate-400'}`}
                     title="Atajo de teclado: M"
                     type="button"
                 >
-                    <div class="w-3 h-3 rounded-sm bg-emerald-400 shadow-inner"></div> Mañana <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-emerald-700 font-bold shadow-sm">M</kbd>
+                    <div class="w-3 h-3 rounded-sm bg-emerald-400 dark:bg-emerald-600 shadow-inner"></div> Mañana <kbd class="ml-1 text-[10px] font-mono bg-white/60 dark:bg-black/20 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-300 font-bold shadow-sm">M</kbd>
                 </button>
 
                 <button
                     onClick$={() => activeTool.value = 'Tarde'}
-                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Tarde' ? 'bg-orange-100 text-orange-800 ring-2 ring-orange-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-orange-50 text-slate-600'}`}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Tarde' ? 'bg-orange-100 dark:bg-orange-900/60 text-orange-800 dark:text-orange-300 ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-slate-900 shadow-md scale-105' : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-orange-50 dark:hover:bg-orange-900/30 text-slate-600 dark:text-slate-400'}`}
                     title="Atajo de teclado: T"
                     type="button"
                 >
-                    <div class="w-3 h-3 rounded-sm bg-orange-400 shadow-inner"></div> Tarde <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-orange-700 font-bold shadow-sm">T</kbd>
+                    <div class="w-3 h-3 rounded-sm bg-orange-400 dark:bg-orange-600 shadow-inner"></div> Tarde <kbd class="ml-1 text-[10px] font-mono bg-white/60 dark:bg-black/20 px-1.5 py-0.5 rounded text-orange-700 dark:text-orange-300 font-bold shadow-sm">T</kbd>
                 </button>
 
                 <button
                     onClick$={() => activeTool.value = 'Noche'}
-                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Noche' ? 'bg-indigo-100 text-indigo-800 ring-2 ring-indigo-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-indigo-50 text-slate-600'}`}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Noche' ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 shadow-md scale-105' : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-600 dark:text-slate-400'}`}
                     title="Atajo de teclado: N"
                     type="button"
                 >
-                    <div class="w-3 h-3 rounded-sm bg-indigo-400 shadow-inner"></div> Noche <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-indigo-700 font-bold shadow-sm">N</kbd>
+                    <div class="w-3 h-3 rounded-sm bg-indigo-400 dark:bg-indigo-600 shadow-inner"></div> Noche <kbd class="ml-1 text-[10px] font-mono bg-white/60 dark:bg-black/20 px-1.5 py-0.5 rounded text-indigo-700 dark:text-indigo-300 font-bold shadow-sm">N</kbd>
                 </button>
 
                 <button
                     onClick$={() => activeTool.value = 'Franco'}
-                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Franco' ? 'bg-zinc-200 text-zinc-900 ring-2 ring-zinc-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-zinc-200 text-slate-600'}`}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Franco' ? 'bg-zinc-200 dark:bg-slate-700 text-zinc-900 dark:text-slate-100 ring-2 ring-zinc-500 dark:ring-slate-400 ring-offset-2 dark:ring-offset-slate-900 shadow-md scale-105' : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-zinc-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
                     title="Atajo de teclado: F"
                     type="button"
                 >
-                    <div class="w-3 h-3 rounded-sm bg-zinc-400 shadow-inner"></div> Franco <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-zinc-800 font-bold shadow-sm">F</kbd>
+                    <div class="w-3 h-3 rounded-sm bg-zinc-400 dark:bg-slate-500 shadow-inner"></div> Franco <kbd class="ml-1 text-[10px] font-mono bg-white/60 dark:bg-black/20 px-1.5 py-0.5 rounded text-zinc-800 dark:text-slate-200 font-bold shadow-sm">F</kbd>
                 </button>
 
-                <div class="w-px h-8 bg-slate-300 mx-2"></div>
+                <div class="w-px h-8 bg-slate-300 dark:bg-slate-700 mx-2 transition-colors"></div>
 
                 <button
                     onClick$={() => activeTool.value = 'Vacío'}
-                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Vacío' ? 'bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-2 shadow-md scale-105' : 'bg-slate-100 hover:bg-rose-50 text-slate-600'}`}
+                    class={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm font-medium ${activeTool.value === 'Vacío' ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300 ring-2 ring-rose-500 ring-offset-2 dark:ring-offset-slate-900 shadow-md scale-105' : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-600 dark:text-slate-400'}`}
                     title="Atajo de teclado: X, Suprimir o Esc"
                     type="button"
                 >
-                    <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    Borrar <kbd class="ml-1 text-[10px] font-mono bg-white/60 px-1.5 py-0.5 rounded text-rose-700 font-bold shadow-sm">X</kbd>
+                    <svg class="w-4 h-4 text-rose-500 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Borrar <kbd class="ml-1 text-[10px] font-mono bg-white/60 dark:bg-black/20 px-1.5 py-0.5 rounded text-rose-700 dark:text-rose-300 font-bold shadow-sm">X</kbd>
                 </button>
             </div>
 
-            <div class="overflow-x-auto overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white">
-                <div id="roster-export-area" class="w-max min-w-full bg-white p-2">
+            <div class="overflow-x-auto overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white dark:bg-slate-900 transition-colors">
+                <div id="roster-export-area" class="w-max min-w-full bg-white dark:bg-slate-900 p-2 transition-colors">
                     <table class="w-full text-left border-collapse text-sm">
-                        <thead class="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-[0_1px_0_0_rgba(203,213,225,1)]">
-                            <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        <thead class="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_1px_0_0_rgba(203,213,225,1)] dark:shadow-[0_1px_0_0_rgba(51,65,85,1)] transition-colors">
+                            <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 {/* Staff Column Header - Sticky Left */}
-                                <th class="px-4 py-3 border-r border-slate-200 sticky left-0 z-40 bg-slate-50 shadow-[1px_0_0_0_rgba(203,213,225,1)] w-48 min-w-[12rem]">
+                                <th class="px-4 py-3 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-40 bg-slate-50 dark:bg-slate-800/90 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] w-48 min-w-[12rem] transition-colors">
                                     Empleado
                                 </th>
 
                                 {/* Days Columns */}
                                 {daysData.value.map(day => (
-                                    <th key={day.fechaString} class={`px-1 py-2 text-center border-r border-slate-200 min-w-[2.8rem] ${day.isWeekend ? 'bg-indigo-50/50 text-indigo-700' : ''}`}>
+                                    <th key={day.fechaString} class={`px-1 py-2 text-center border-r border-slate-200 dark:border-slate-800 min-w-[2.8rem] transition-colors ${day.isWeekend ? 'bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : ''}`}>
                                         <div class="flex flex-col items-center justify-center h-full">
-                                            <span class="text-[9px] text-slate-400 font-medium leading-tight">{day.nombreDia}</span>
-                                            <span class="text-[13px] font-bold text-slate-700 leading-tight">{day.dia}</span>
+                                            <span class="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">{day.nombreDia}</span>
+                                            <span class="text-[13px] font-bold text-slate-700 dark:text-slate-300 leading-tight">{day.dia}</span>
                                         </div>
                                     </th>
                                 ))}
 
                                 {/* Francos Total Column - Sticky Right */}
-                                <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-slate-600 w-16 select-none" title={`Objetivo: ${targetFrancos.value} francos libres`}>
+                                <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 dark:bg-slate-800/90 shadow-[-1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[-1px_0_0_0_rgba(51,65,85,1)] text-center text-slate-600 dark:text-slate-400 w-16 select-none transition-colors" title={`Objetivo: ${targetFrancos.value} francos libres`}>
                                     Σ F. ({targetFrancos.value})
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 text-slate-700 relative z-0">
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 relative z-0 transition-colors">
                             {dataComputed.value.rows.map(row => (
-                                <tr key={row.staff.id} class="group hover:bg-slate-50/50 transition-colors h-11">
+                                <tr key={row.staff.id} class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors h-11">
 
                                     {/* Staff Name - Sticky Left */}
-                                    <td class="px-4 py-1.5 border-r border-slate-200 bg-white group-hover:bg-slate-50/80 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(241,245,249,1)]">
-                                        <div class="font-medium truncate text-slate-800 text-[13px]" title={row.staff.nombre}>{row.staff.nombre}</div>
+                                    <td class="px-4 py-1.5 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(241,245,249,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] transition-colors">
+                                        <div class="font-medium truncate text-slate-800 dark:text-slate-200 text-[13px]" title={row.staff.nombre}>{row.staff.nombre}</div>
                                     </td>
 
                                     {/* Interactive Cells ~40x40px */}
                                     {daysData.value.map(day => {
                                         const { state, isViolation } = row.cells[day.fechaString];
                                         return (
-                                            <td key={`${row.staff.id}-${day.fechaString}`} class={`p-1 border-r border-slate-100 text-center align-middle ${day.isWeekend ? 'bg-indigo-50/20' : ''}`}>
+                                            <td key={`${row.staff.id}-${day.fechaString}`} class={`p-1 border-r border-slate-100 dark:border-slate-800 text-center align-middle transition-colors ${day.isWeekend ? 'bg-indigo-50/20 dark:bg-indigo-900/10' : ''}`}>
                                                 <button
                                                     onClick$={() => handleCellClick(row.staff.id, day.fechaString, state)}
                                                     class={`w-9 h-9 md:w-10 md:h-10 mx-auto text-[13px] flex items-center justify-center font-bold rounded-md transition-all cursor-pointer ${getCellColor(state, isViolation)}`}
@@ -314,8 +315,8 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                                     })}
 
                                     {/* Validación 1: Francos Totales - Sticky Right */}
-                                    <td class="px-3 py-2 bg-white group-hover:bg-slate-50/80 sticky right-0 z-20 shadow-[-1px_0_0_0_rgba(241,245,249,1)] align-middle text-center w-16">
-                                        <span class={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${row.francosCorrectos ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                    <td class="px-3 py-2 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80 sticky right-0 z-20 shadow-[-1px_0_0_0_rgba(241,245,249,1)] dark:shadow-[-1px_0_0_0_rgba(30,41,59,1)] align-middle text-center w-16 transition-colors">
+                                        <span class={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${row.francosCorrectos ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-400'}`}>
                                             {row.francosTotales}
                                         </span>
                                     </td>
@@ -324,9 +325,9 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                         </tbody>
 
                         {/* FOOTER : Validación 2: Cobertura Diaria */}
-                        <tfoot class="sticky bottom-0 z-30 bg-white border-t border-slate-300 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)]">
-                            <tr class="tracking-tight border-b border-slate-200 shadow-sm">
-                                <th class="px-4 py-3 border-r border-slate-300 sticky left-0 z-40 bg-slate-100 shadow-[1px_0_0_0_rgba(203,213,225,1)] text-md font-bold text-right text-slate-700">
+                        <tfoot class="sticky bottom-0 z-30 bg-white dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)] transition-colors">
+                            <tr class="tracking-tight border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+                                <th class="px-4 py-3 border-r border-slate-300 dark:border-slate-800 sticky left-0 z-40 bg-slate-100 dark:bg-slate-800/90 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] text-md font-bold text-right text-slate-700 dark:text-slate-300 transition-colors">
                                     Cobertura Requerida
                                 </th>
 
@@ -337,17 +338,17 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                                     const nOk = totals.N === 2;
 
                                     return (
-                                        <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 text-center bg-slate-50/80 backdrop-blur align-middle">
+                                        <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 dark:border-slate-800 text-center bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur align-middle transition-colors">
                                             <div class="flex flex-col items-center justify-center gap-1 text-md font-mono leading-none font-semibold">
-                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>M:{totals.M}</span>
-                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 text-orange-700" : "bg-rose-100 text-rose-700"}`}>T:{totals.T}</span>
-                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 text-indigo-700" : "bg-rose-100 text-rose-700"}`}>N:{totals.N}</span>
+                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>M:{totals.M}</span>
+                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>T:{totals.T}</span>
+                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>N:{totals.N}</span>
                                             </div>
                                         </td>
                                     )
                                 })}
 
-                                <th class="px-3 py-2 sticky right-0 z-40 bg-slate-100 border-l border-slate-300 shadow-[-1px_0_0_0_rgba(203,213,225,1)] text-center text-xs text-slate-500 font-medium"></th>
+                                <th class="px-3 py-2 sticky right-0 z-40 bg-slate-100 dark:bg-slate-800/90 border-l border-slate-300 dark:border-slate-800 shadow-[-1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[-1px_0_0_0_rgba(51,65,85,1)] text-center text-xs text-slate-500 font-medium transition-colors"></th>
                             </tr>
                         </tfoot>
                     </table>
@@ -356,8 +357,8 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
             {/* ERROR DE INFRACCIÓN GLOBAL EN LA PARTE INFERIOR */}
             {(hasViolations.value.hasRestViolations || hasViolations.value.hasFrancoViolations) && (
-                <div class="px-5 py-3 bg-rose-50 border-t border-rose-200 z-40 relative shadow-inner">
-                    <div class="flex flex-col gap-1 max-w-[1200px] mx-auto text-sm text-rose-700">
+                <div class="px-5 py-3 bg-rose-50 dark:bg-rose-950/50 border-t border-rose-200 dark:border-rose-900 z-40 relative shadow-inner transition-colors">
+                    <div class="flex flex-col gap-1 max-w-[1200px] mx-auto text-sm text-rose-700 dark:text-rose-400">
                         {hasViolations.value.hasRestViolations && (
                             <p class="flex items-center justify-center md:justify-start gap-2">
                                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>

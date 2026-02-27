@@ -1,4 +1,4 @@
-import { component$, useSignal, $ } from '@builder.io/qwik';
+import { component$, useSignal, $, useVisibleTask$ } from '@builder.io/qwik';
 import { routeLoader$, globalAction$, zod$, z, type DocumentHead, useLocation, Link } from '@builder.io/qwik-city';
 import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
@@ -120,6 +120,40 @@ export const useToggleShiftAction = globalAction$(
   })
 );
 
+export const ThemeToggle = component$(() => {
+  const isDark = useSignal<boolean>(false);
+
+  useVisibleTask$(() => {
+    isDark.value = document.documentElement.classList.contains('dark');
+  });
+
+  const toggleTheme = $(() => {
+    isDark.value = !isDark.value;
+    if (isDark.value) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  });
+
+  return (
+    <button
+      onClick$={toggleTheme}
+      class="inline-flex shrink-0 items-center justify-center p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      title={isDark.value ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      type="button"
+    >
+      {isDark.value ? (
+        <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+      ) : (
+        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+      )}
+    </button>
+  );
+});
+
 // Main Dashboard Page
 export default component$(() => {
   const loc = useLocation();
@@ -139,16 +173,16 @@ export default component$(() => {
   const isStaffModalOpen = useSignal<boolean>(false);
 
   return (
-    <div class="min-h-screen bg-slate-100 p-4 md:p-6 font-sans">
-      <div class="w-full mx-auto space-y-6">
-
+    <>
+      <div class="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans pb-10 transition-colors">
         {/* Header */}
-        <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <header class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors">
           <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Ligustros Sync</h1>
-            <p class="text-sm text-slate-500 mt-1">Planilla Inteligente de Gestión de Turnos (Asignación Manual)</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Ligustros Sync</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Planilla Inteligente de Gestión de Turnos (Asignación Manual)</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
+            <ThemeToggle />
             <button
               onClick$={$(async () => {
                 const html2canvas = (await import('html2canvas-pro')).default;
@@ -178,7 +212,7 @@ export default component$(() => {
                   }
                 }
               })}
-              class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-emerald-300 rounded-lg text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+              class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-emerald-300 dark:border-emerald-700/60 rounded-lg text-sm font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-800/50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
               type="button"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -186,27 +220,29 @@ export default component$(() => {
             </button>
             <button
               onClick$={() => isStaffModalOpen.value = true}
-              class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+              class="inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
               type="button"
             >
-              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+              <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
               ⚙️ Gestionar Personal
             </button>
           </div>
         </header>
 
         {/* Seleccionador de Meses */}
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto custom-scrollbar">
+        <div class="mt-6 -mb-2 overflow-x-auto pb-4 custom-scrollbar">
           <div class="flex items-center gap-2 min-w-max px-2">
             <Link
-              href={`?anio=${currentAnio - 1}&mes=12`}
-              class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              title="Año Anterior"
+              href={`?anio=${currentAnio - 1}&mes=${currentMes}`}
+              class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+              title="Año anterior"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
             </Link>
 
-            <span class="font-bold text-slate-700 mx-2 text-lg">{currentAnio}</span>
+            <div class="text-sm font-bold text-slate-700 dark:text-slate-200 px-3 py-1 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm">
+              {currentAnio}
+            </div>
 
             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
               const isSelected = m === currentMes;
@@ -216,8 +252,8 @@ export default component$(() => {
                   key={m}
                   href={`?anio=${currentAnio}&mes=${m}`}
                   class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${isSelected
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                 >
                   {nombreMes}
@@ -226,9 +262,9 @@ export default component$(() => {
             })}
 
             <Link
-              href={`?anio=${currentAnio + 1}&mes=1`}
-              class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              title="Año Siguiente"
+              href={`?anio=${currentAnio + 1}&mes=${currentMes}`}
+              class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+              title="Año siguiente"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </Link>
@@ -236,45 +272,63 @@ export default component$(() => {
         </div>
 
         {/* Tableros Principales */}
-        <div class="flex flex-col gap-6 items-start">
-
-          {/* Grid Derecha (Cuadrante Mes - Planilla Inteligente) */}
-          <div class="flex-1 w-full flex flex-col overflow-hidden min-h-[600px] bg-white rounded-xl shadow-sm border border-slate-200">
-            <RosterGrid
-              assignments={assignments.value}
-              rules={rules.value}
-              staffList={staff.value}
-              anio={currentAnio}
-              mes={currentMes}
-              toggleAction={toggleShiftAction}
-            />
-          </div>
-
-        </div>
-
+        <main class="w-full mx-auto space-y-6 p-4 md:p-6 pt-0">
+          {staff.value.length === 0 ? (
+            <div class="pt-4 h-full flex flex-col items-center">
+              <span class="inline-flex items-center justify-center p-3 rounded-xl bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 mb-4 shadow-sm relative">
+                <svg class="w-8 h-8 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <div class="absolute inset-0 bg-orange-200 dark:bg-orange-800/30 blur-md rounded-full opacity-50"></div>
+              </span>
+              <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-3">Directorio Vacío</h2>
+              <p class="text-slate-500 dark:text-slate-400 text-center text-sm mb-6 max-w-[280px]">
+                No tienes personal registrado. Para empezar a asignar turnos, necesitas agregar al menos un miembro al staff.
+              </p>
+              <button
+                onClick$={() => isStaffModalOpen.value = true}
+                class="inline-flex items-center justify-center px-5 py-2.5 border border-transparent shadow-md text-sm font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              >
+                Agregar mi primer empleado
+              </button>
+            </div>
+          ) : (
+            <RosterGrid staffList={staff.value} assignments={assignments.value} rules={rules.value} mes={currentMes} anio={currentAnio} toggleAction={toggleShiftAction} />
+          )}
+        </main>
       </div>
 
-      {/* Modal Overlay para Staff Manager */}
+      {/* Staff Management Modal overlay */}
       {isStaffModalOpen.value && (
-        <div class="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
-          <div class="w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden relative max-h-[90vh]">
-            <button
-              onClick$={() => isStaffModalOpen.value = false}
-              class="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors bg-white/50 backdrop-blur-md"
-              title="Cerrar modal"
-              type="button"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+        <dialog
+          open
+          class="fixed inset-0 z-100 w-full h-full bg-transparent flex items-center justify-center p-4 sm:p-6"
+          onClick$={(e) => {
+            // Close when clicking empty space
+            if (e.target === e.currentTarget) isStaffModalOpen.value = false;
+          }}
+        >
+          {/* Backdrop blur overlay */}
+          <div class="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/70 backdrop-blur-sm transition-opacity" aria-hidden="true" />
+
+          {/* Modal Container */}
+          <div class="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl dark:shadow-black border border-slate-200 dark:border-slate-800 overflow-hidden z-10 animate-fade-in scale-in">
+            {/* Close Button Header */}
+            <div class="absolute top-4 right-4 z-20">
+              <button
+                onClick$={() => isStaffModalOpen.value = false}
+                class="p-2 rounded-full text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                aria-label="Cerrar modal de staff"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
             <StaffManager
               staffList={staff.value}
               manageAction={manageStaffAction}
             />
           </div>
-        </div>
+        </dialog>
       )}
-
-    </div>
+    </>
   );
 });
 

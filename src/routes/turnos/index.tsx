@@ -97,47 +97,50 @@ export default component$(() => {
     const getSemanticColors = (tipo: string) => {
         switch (tipo) {
             case 'Mañana':
-                return { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-blue-800', dot: 'bg-blue-500' };
+                return { border: 'border-blue-500 dark:border-blue-700', bg: 'bg-blue-50 dark:bg-blue-900/40', text: 'text-blue-800 dark:text-blue-300', dot: 'bg-blue-500 dark:bg-blue-400' };
             case 'Tarde':
-                return { border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-800', dot: 'bg-orange-500' };
+                return { border: 'border-orange-500 dark:border-orange-700', bg: 'bg-orange-50 dark:bg-orange-900/40', text: 'text-orange-800 dark:text-orange-300', dot: 'bg-orange-500 dark:bg-orange-400' };
             case 'Noche':
-                return { border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-800', dot: 'bg-purple-500' };
+                return { border: 'border-purple-500 dark:border-purple-700', bg: 'bg-purple-50 dark:bg-purple-900/40', text: 'text-purple-800 dark:text-purple-300', dot: 'bg-purple-500 dark:bg-purple-400' };
             case 'Franco':
-                return { border: 'border-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-800', dot: 'bg-emerald-500' };
+                return { border: 'border-emerald-500 dark:border-emerald-700', bg: 'bg-emerald-50 dark:bg-emerald-900/40', text: 'text-emerald-800 dark:text-emerald-300', dot: 'bg-emerald-500 dark:bg-emerald-400' };
             default:
-                return { border: 'border-slate-400', bg: 'bg-slate-50', text: 'text-slate-800', dot: 'bg-slate-400' };
+                return { border: 'border-slate-400 dark:border-slate-600', bg: 'bg-slate-50 dark:bg-slate-800/50', text: 'text-slate-800 dark:text-slate-300', dot: 'bg-slate-400 dark:bg-slate-500' };
         }
     };
 
     const nombreMes = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(new Date(scheduleData.value.anio, scheduleData.value.mes - 1, 1));
 
     return (
-        <div class="min-h-screen bg-slate-50 font-sans pb-10">
+        <div class="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans pb-10 transition-colors">
             {/* Mobile-first Header */}
-            <header class="bg-indigo-600 px-6 py-8 text-white shadow-lg sticky top-0 z-20">
+            <header class="bg-indigo-600 dark:bg-indigo-900 px-6 py-8 text-white shadow-lg sticky top-0 z-20 transition-colors">
                 <h1 class="text-3xl font-extrabold tracking-tight mb-2">Ligustros Sync</h1>
-                <p class="text-indigo-100 font-medium opacity-90">Mi Cronograma de Turnos</p>
+                <p class="text-indigo-100 dark:text-indigo-200 font-medium opacity-90">Mi Cronograma de Turnos</p>
             </header>
 
             <main class="max-w-md mx-auto px-4 -mt-6 relative z-30">
                 {/* Selector Card */}
-                <div class="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-slate-100">
-                    <label for="staff-select" class="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 mb-8 border border-slate-100 dark:border-slate-700 transition-colors">
+                    <label for="staff-select" class="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 uppercase tracking-wide">
                         ¿Quién eres?
                     </label>
                     <div class="relative">
                         <select
                             id="staff-select"
-                            class="block w-full appearance-none rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-4 text-slate-800 font-medium shadow-sm transition-colors focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 text-lg"
+                            class="block w-full appearance-none rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 px-4 py-4 text-slate-800 dark:text-slate-100 font-medium shadow-sm transition-colors focus:border-indigo-500 dark:focus:border-indigo-400 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 text-lg"
                             value={selectedStaffId.value}
-                            onChange$={(e) => selectedStaffId.value = e.target.value}
+                            onChange$={(e) => {
+                                const target = e.target as HTMLSelectElement;
+                                selectedStaffId.value = target.value;
+                            }}
                         >
                             <option value="" disabled selected>Selecciona tu nombre...</option>
                             {staff.value.map(s => (
                                 <option key={s.id} value={s.id}>{s.nombre}</option>
                             ))}
                         </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 dark:text-slate-400">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
                     </div>
@@ -146,47 +149,47 @@ export default component$(() => {
                 {/* Content Area */}
                 {!selectedStaffId.value ? (
                     <div class="text-center py-12 px-6">
-                        <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                            <span class="text-4xl text-indigo-500">👋</span>
+                        <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <span class="text-4xl text-indigo-500 dark:text-indigo-400">👋</span>
                         </div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2">¡Hola!</h3>
-                        <p class="text-slate-500 text-base leading-relaxed">
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">¡Hola!</h3>
+                        <p class="text-slate-500 dark:text-slate-400 text-base leading-relaxed">
                             Selecciona tu nombre en la lista de arriba para ver los turnos y francos que tienes asignados para <strong>{nombreMes}</strong>.
                         </p>
                     </div>
                 ) : (
                     <div class="space-y-6 animate-fade-in">
                         <div class="flex items-center justify-between mb-2">
-                            <h2 class="text-lg font-extrabold text-slate-800 capitalize tracking-tight">{nombreMes}</h2>
-                            <span class="bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full font-bold shadow-sm inline-flex items-center gap-1.5">
+                            <h2 class="text-lg font-extrabold text-slate-800 dark:text-slate-100 capitalize tracking-tight">{nombreMes}</h2>
+                            <span class="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs px-2.5 py-1 rounded-full font-bold shadow-sm inline-flex items-center gap-1.5 transition-colors">
                                 Σ {userEvents.value.length} event.
                             </span>
                         </div>
 
                         {userEvents.value.length === 0 ? (
-                            <div class="bg-amber-50 rounded-2xl p-6 border-2 border-amber-200 text-center">
-                                <p class="text-amber-800 font-medium">Aún no tienes turnos ni francos asignados para este mes.</p>
+                            <div class="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-6 border-2 border-amber-200 dark:border-amber-800/50 text-center">
+                                <p class="text-amber-800 dark:text-amber-400 font-medium">Aún no tienes turnos ni francos asignados para este mes.</p>
                             </div>
                         ) : (
-                            <div class="relative border-l-4 border-slate-200 ml-4 space-y-8 pl-6 pb-4">
+                            <div class="relative border-l-4 border-slate-200 dark:border-slate-700 ml-4 space-y-8 pl-6 pb-4">
                                 {userEvents.value.map((event, index) => {
                                     const colors = getSemanticColors(event.tipo);
                                     return (
                                         <div key={index} class="relative">
                                             {/* Timeline Dot */}
-                                            <span class={`absolute -left-[35px] top-4 w-4 h-4 rounded-full ${colors.dot} ring-4 ring-slate-50 shadow-sm z-10`}></span>
+                                            <span class={`absolute -left-[35px] top-4 w-4 h-4 rounded-full ${colors.dot} ring-4 ring-slate-50 dark:ring-slate-900 shadow-sm z-10`}></span>
 
                                             {/* Event Card */}
-                                            <div class={`bg-white rounded-xl shadow-md border-l-4 ${colors.border} p-4 transition-transform hover:scale-[1.02]`}>
+                                            <div class={`bg-white dark:bg-slate-800 rounded-xl shadow-md border-l-4 ${colors.border} p-4 transition-transform hover:scale-[1.02]`}>
                                                 <div class="flex items-center justify-between">
-                                                    <h3 class="text-lg font-bold text-slate-900 leading-none">
+                                                    <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 leading-none">
                                                         {formatEventDate(event.fechaObj)}
                                                     </h3>
                                                     <span class={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${colors.bg} ${colors.text}`}>
                                                         {event.tipo}
                                                     </span>
                                                 </div>
-                                                <div class="mt-2 text-sm text-slate-500 flex items-center gap-1">
+                                                <div class="mt-2 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                                     <span class="font-mono text-xs">{event.fechaString}</span>
                                                 </div>

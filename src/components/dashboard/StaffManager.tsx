@@ -13,21 +13,21 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
     const getBadgeStyle = (rol: string) => {
         const rolNormalizado = (rol || '').toLowerCase().trim();
         if (rolNormalizado.includes('enfermeri') || rolNormalizado.includes('enfermera') || rolNormalizado.includes('medico')) {
-            return "bg-emerald-100 text-emerald-800 border-emerald-200";
+            return "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50";
         }
         if (rolNormalizado.includes('maestranza') || rolNormalizado.includes('limpieza') || rolNormalizado.includes('mantenimiento')) {
-            return "bg-orange-100 text-orange-800 border-orange-200";
+            return "bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800/50";
         }
         if (rolNormalizado.includes('cocin')) {
-            return "bg-blue-100 text-blue-800 border-blue-200";
+            return "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/50";
         }
-        return "bg-slate-100 text-slate-800 border-slate-200"; // Default
+        return "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700"; // Default
     };
 
     return (
-        <div class="bg-white flex flex-col h-full overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-200 bg-white flex justify-between items-center shrink-0 pr-12">
-                <h2 class="text-xl font-bold tracking-tight text-slate-900">Gestión de Staff</h2>
+        <div class="bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0 pr-12 transition-colors">
+                <h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Gestión de Staff</h2>
             </div>
 
             <div class="p-0 flex-1 flex flex-col min-h-0">
@@ -35,20 +35,20 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
                 <div class="flex-1 overflow-y-auto">
                     {props.staffList.length === 0 ? (
                         <div class="flex flex-col items-center justify-center p-12 text-center h-full">
-                            <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
-                                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <div class="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <svg class="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                 </svg>
                             </div>
-                            <h3 class="text-base font-semibold text-slate-900">Directorio Vacío</h3>
-                            <p class="mt-1 text-sm text-slate-500 max-w-[200px]">Comienza agregando miembros al staff para autogenerar turnos.</p>
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Directorio Vacío</h3>
+                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-[200px]">Comienza agregando miembros al staff para autogenerar turnos.</p>
                         </div>
                     ) : (
-                        <ul class="divide-y divide-slate-100">
+                        <ul class="divide-y divide-slate-100 dark:divide-slate-800">
                             {props.staffList.map((empleado) => (
-                                <li key={empleado.id} class="px-6 py-4 flex flex-col xl:flex-row justify-between xl:items-center gap-3 group hover:bg-slate-50/80 transition-colors">
+                                <li key={empleado.id} class="px-6 py-4 flex flex-col xl:flex-row justify-between xl:items-center gap-3 group hover:bg-slate-50/80 dark:hover:bg-slate-800/80 transition-colors">
                                     <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold tracking-tight text-slate-900 truncate">
+                                        <p class="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 truncate">
                                             {empleado.nombre}
                                         </p>
                                         <div class="mt-1.5 flex items-center">
@@ -62,7 +62,7 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
                                         <input type="hidden" name="id" value={empleado.id} />
                                         <button
                                             type="submit"
-                                            class="inline-flex items-center justify-center p-2 text-red-500 hover:text-red-700 hover:bg-red-50 bg-white border border-transparent rounded-lg transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
+                                            class="inline-flex items-center justify-center p-2 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 bg-white dark:bg-slate-800 border border-transparent rounded-lg transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
                                             title="Remover Empleado"
                                             onClick$={$((e: Event) => {
                                                 if (!window.confirm(`¿Estás seguro de que quieres eliminar a ${empleado.nombre}?`)) {
@@ -80,8 +80,8 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
                 </div>
 
                 {/* Formulario de Alta */}
-                <div class="p-6 border-t border-slate-200 bg-slate-50 shrink-0">
-                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                <div class="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0 transition-colors">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2">
                         <span>Agregar Miembro</span>
                     </h3>
                     <Form action={props.manageAction} class="space-y-4">
@@ -89,23 +89,23 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
 
                         <div class="space-y-4">
                             <div>
-                                <label for="nombre" class="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">Nombre Completo</label>
+                                <label for="nombre" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wide">Nombre Completo</label>
                                 <input
                                     type="text"
                                     id="nombre"
                                     name="nombre"
                                     required
-                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                                    class="w-full rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                     placeholder="Ej: María López"
                                 />
                             </div>
                             <div>
-                                <label for="rol" class="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">Rol / Especialidad</label>
+                                <label for="rol" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wide">Rol / Especialidad</label>
                                 <input
                                     type="text"
                                     id="rol"
                                     name="rol"
-                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                                    class="w-full rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                     placeholder="Ej: Enfermería o Franquero"
                                 />
                             </div>
