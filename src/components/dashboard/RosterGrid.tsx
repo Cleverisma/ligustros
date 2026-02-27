@@ -326,7 +326,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                         {/* FOOTER : Validación 2: Cobertura Diaria */}
                         <tfoot class="sticky bottom-0 z-30 bg-white border-t border-slate-300 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)]">
                             <tr class="tracking-tight border-b border-slate-200 shadow-sm">
-                                <th class="px-4 py-3 border-r border-slate-300 sticky left-0 z-40 bg-slate-100 shadow-[1px_0_0_0_rgba(203,213,225,1)] text-xs font-bold text-right text-slate-700">
+                                <th class="px-4 py-3 border-r border-slate-300 sticky left-0 z-40 bg-slate-100 shadow-[1px_0_0_0_rgba(203,213,225,1)] text-md font-bold text-right text-slate-700">
                                     Cobertura Requerida
                                 </th>
 
@@ -338,7 +338,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
                                     return (
                                         <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 text-center bg-slate-50/80 backdrop-blur align-middle">
-                                            <div class="flex flex-col items-center justify-center gap-1 text-[10px] font-mono leading-none font-semibold">
+                                            <div class="flex flex-col items-center justify-center gap-1 text-md font-mono leading-none font-semibold">
                                                 <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>M:{totals.M}</span>
                                                 <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 text-orange-700" : "bg-rose-100 text-rose-700"}`}>T:{totals.T}</span>
                                                 <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 text-indigo-700" : "bg-rose-100 text-rose-700"}`}>N:{totals.N}</span>
