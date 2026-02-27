@@ -3,6 +3,7 @@ export interface Staff {
     nombre: string;
     rol: string;
     turno_preferido?: 'Mañana' | 'Tarde' | 'Noche';
+    modalidad_turno?: 'M' | 'T' | 'N' | 'MIXTO';
 }
 
 export interface ReglaDisponibilidad {
