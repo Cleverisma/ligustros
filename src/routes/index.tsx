@@ -171,6 +171,66 @@ export const ThemeToggle = component$(() => {
   );
 });
 
+export const useClonePreviousMonthAction = globalAction$(
+  async (data, requestEvent) => {
+    const db = getDbClient(requestEvent.env);
+
+    const targetAnio = data.targetAnio;
+    const targetMes = data.targetMes;
+
+    let prevAnio = targetAnio;
+    let prevMes = targetMes - 1;
+    if (prevMes === 0) {
+      prevMes = 12;
+      prevAnio--;
+    }
+
+    const prevMonthStr = `${prevAnio}-${String(prevMes).padStart(2, '0')}`;
+
+    const result = await db.execute({
+      sql: `SELECT dia, turno, staff_id FROM turnos_asignados WHERE strftime('%Y-%m', dia) = ? ORDER BY dia ASC`,
+      args: [prevMonthStr]
+    });
+
+    const prevAssignments = result.rows as unknown as { dia: string; turno: string; staff_id: string }[];
+
+    if (prevAssignments.length === 0) {
+      return requestEvent.fail(404, { message: 'No hay datos del mes anterior para clonar.' });
+    }
+
+    const daysInTargetMonth = new Date(targetAnio, targetMes, 0).getDate();
+    const batchStatements: any[] = [];
+
+    for (const assignment of prevAssignments) {
+      const dayStr = assignment.dia.split('-')[2];
+      const dayNum = parseInt(dayStr, 10);
+
+      if (dayNum > daysInTargetMonth) {
+        continue;
+      }
+
+      const newDateStr = `${targetAnio}-${String(targetMes).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
+      batchStatements.push({
+        sql: 'INSERT INTO turnos_asignados (dia, turno, staff_id) VALUES (?, ?, ?)',
+        args: [newDateStr, assignment.turno, assignment.staff_id]
+      });
+    }
+
+    if (batchStatements.length === 0) {
+      return requestEvent.fail(400, { message: 'No se generaron turnos válidos para clonar.' });
+    }
+
+    await db.batch(batchStatements);
+
+    return { success: true, count: batchStatements.length };
+  },
+  zod$({
+    targetAnio: z.number().int().min(2000).max(2100),
+    targetMes: z.number().int().min(1).max(12)
+  })
+);
+
 // Main Dashboard Page
 export default component$(() => {
   const loc = useLocation();
@@ -180,6 +240,7 @@ export default component$(() => {
   const configData = useConfigLoader();
   const manageStaffAction = useManageStaffAction();
   const toggleShiftAction = useToggleShiftAction();
+  const clonePreviousMonthAction = useClonePreviousMonthAction();
 
   const hoy = new Date();
   const paramAnio = loc.url.searchParams.get('anio');
@@ -316,7 +377,16 @@ export default component$(() => {
               </button>
             </div>
           ) : (
-            <RosterGrid staffList={staff.value} assignments={assignments.value} rules={rules.value} mes={currentMes} anio={currentAnio} toggleAction={toggleShiftAction} config={configData.value} />
+            <RosterGrid
+              staffList={staff.value}
+              assignments={assignments.value}
+              rules={rules.value}
+              mes={currentMes}
+              anio={currentAnio}
+              toggleAction={toggleShiftAction}
+              config={configData.value}
+              cloneAction={clonePreviousMonthAction}
+            />
           )}
         </main>
       </div>

@@ -1,5 +1,5 @@
 import { component$, useSignal, useComputed$ } from '@builder.io/qwik';
-import { routeLoader$, useLocation, type DocumentHead } from '@builder.io/qwik-city';
+import { routeLoader$, type DocumentHead } from '@builder.io/qwik-city';
 import { getDbClient } from '../../server/db/turso';
 import type { Staff, TurnoAsignado, ReglaDisponibilidad } from '../../types';
 
@@ -44,7 +44,6 @@ export const useMobileScheduleLoader = routeLoader$(async (requestEvent) => {
 export default component$(() => {
     const staff = useStaffLoader();
     const scheduleData = useMobileScheduleLoader();
-    const location = useLocation();
 
     // Selected staff ID state
     const selectedStaffId = useSignal('');

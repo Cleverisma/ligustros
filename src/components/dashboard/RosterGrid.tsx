@@ -9,6 +9,7 @@ export interface RosterGridProps {
     mes: number;
     anio: number;
     toggleAction: ActionStore<any, any, true>;
+    cloneAction: ActionStore<any, any, true>;
     config: ConfiguracionGlobal;
 }
 
@@ -16,6 +17,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
     // Paleta de Herramientas (Pincel Activo)
     const activeTool = useSignal<'Mañana' | 'Tarde' | 'Noche' | 'Franco' | 'Vacío'>('Mañana');
+    const isEmptyStateDismissed = useSignal<boolean>(false);
 
     // Atajos de teclado para Power Users
     useOnDocument('keydown', $((event: KeyboardEvent) => {
@@ -264,96 +266,137 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
             </div>
 
             <div class="overflow-x-auto overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white dark:bg-slate-900 transition-colors">
-                <div id="roster-export-area" class="w-max min-w-full bg-white dark:bg-slate-900 p-2 transition-colors">
-                    <table class="w-full text-left border-collapse text-sm">
-                        <thead class="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_1px_0_0_rgba(203,213,225,1)] dark:shadow-[0_1px_0_0_rgba(51,65,85,1)] transition-colors">
-                            <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                {/* Staff Column Header - Sticky Left */}
-                                <th class="px-4 py-3 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-40 bg-slate-50 dark:bg-slate-800/90 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] w-48 min-w-[12rem] transition-colors">
-                                    Empleado
-                                </th>
 
-                                {/* Days Columns */}
-                                {daysData.value.map(day => (
-                                    <th key={day.fechaString} class={`px-1 py-2 text-center border-r border-slate-200 dark:border-slate-800 min-w-[2.8rem] transition-colors ${day.isWeekend ? 'bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : ''}`}>
-                                        <div class="flex flex-col items-center justify-center h-full">
-                                            <span class="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">{day.nombreDia}</span>
-                                            <span class="text-[13px] font-bold text-slate-700 dark:text-slate-300 leading-tight">{day.dia}</span>
-                                        </div>
+                {props.assignments.length === 0 && !isEmptyStateDismissed.value ? (
+                    <div class="flex flex-col items-center justify-center p-12 text-center h-full min-h-[400px]">
+                        <div class="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-5 shadow-sm">
+                            <svg class="w-8 h-8 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Aún no hay turnos planificados para este mes</h3>
+                        <p class="text-slate-500 dark:text-slate-400 max-w-sm mb-8">
+                            Puedes empezar copiando el esquema del mes pasado, o empezar a asignar en una planilla en blanco.
+                        </p>
+
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <button
+                                onClick$={() => {
+                                    props.cloneAction.submit({ targetAnio: props.anio, targetMes: props.mes });
+                                }}
+                                disabled={props.cloneAction.isRunning}
+                                class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {props.cloneAction.isRunning ? (
+                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                ) : (
+                                    <span>🪄 Autocompletar con el mes anterior</span>
+                                )}
+                            </button>
+                            <button
+                                onClick$={() => isEmptyStateDismissed.value = true}
+                                class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all"
+                            >
+                                Comenzar en blanco
+                            </button>
+                        </div>
+
+                        {props.cloneAction.value?.failed && (
+                            <div class="mt-6 p-3 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-sm font-medium rounded-lg inline-block border border-rose-200 dark:border-rose-800">
+                                {props.cloneAction.value.message}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div id="roster-export-area" class="w-max min-w-full bg-white dark:bg-slate-900 p-2 transition-colors">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead class="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_1px_0_0_rgba(203,213,225,1)] dark:shadow-[0_1px_0_0_rgba(51,65,85,1)] transition-colors">
+                                <tr class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    {/* Staff Column Header - Sticky Left */}
+                                    <th class="px-4 py-3 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-40 bg-slate-50 dark:bg-slate-800/90 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] w-48 min-w-[12rem] transition-colors">
+                                        Empleado
                                     </th>
+
+                                    {/* Days Columns */}
+                                    {daysData.value.map(day => (
+                                        <th key={day.fechaString} class={`px-1 py-2 text-center border-r border-slate-200 dark:border-slate-800 min-w-[2.8rem] transition-colors ${day.isWeekend ? 'bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : ''}`}>
+                                            <div class="flex flex-col items-center justify-center h-full">
+                                                <span class="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">{day.nombreDia}</span>
+                                                <span class="text-[13px] font-bold text-slate-700 dark:text-slate-300 leading-tight">{day.dia}</span>
+                                            </div>
+                                        </th>
+                                    ))}
+
+                                    {/* Francos Total Column - Sticky Right */}
+                                    <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 dark:bg-slate-800/90 shadow-[-1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[-1px_0_0_0_rgba(51,65,85,1)] text-center text-slate-600 dark:text-slate-400 w-16 select-none transition-colors" title={`Objetivo: ${targetFrancos.value} francos libres`}>
+                                        Σ F. ({targetFrancos.value})
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 relative z-0 transition-colors">
+                                {dataComputed.value.rows.map(row => (
+                                    <tr key={row.staff.id} class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors h-11">
+
+                                        {/* Staff Name - Sticky Left */}
+                                        <td class="px-4 py-1.5 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(241,245,249,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] transition-colors">
+                                            <div class="font-medium truncate text-slate-800 dark:text-slate-200 text-[13px]" title={row.staff.nombre}>{row.staff.nombre}</div>
+                                        </td>
+
+                                        {/* Interactive Cells ~40x40px */}
+                                        {daysData.value.map(day => {
+                                            const { state, isViolation } = row.cells[day.fechaString];
+                                            return (
+                                                <td key={`${row.staff.id}-${day.fechaString}`} class={`p-1 border-r border-slate-100 dark:border-slate-800 text-center align-middle transition-colors ${day.isWeekend ? 'bg-indigo-50/20 dark:bg-indigo-900/10' : ''}`}>
+                                                    <button
+                                                        onClick$={() => handleCellClick(row.staff.id, day.fechaString, state)}
+                                                        class={`w-9 h-9 md:w-10 md:h-10 mx-auto text-[13px] flex items-center justify-center font-bold rounded-md transition-all cursor-pointer ${getCellColor(state, isViolation)}`}
+                                                        title={`Asignar turno a ${row.staff.nombre} el ${day.dia}${isViolation ? ' (Infracción: Regla de 24hs de descanso)' : ''}`}
+                                                        type="button"
+                                                    >
+                                                        {getCellLabel(state)}
+                                                    </button>
+                                                </td>
+                                            )
+                                        })}
+
+                                        {/* Validación 1: Francos Totales - Sticky Right */}
+                                        <td class="px-3 py-2 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80 sticky right-0 z-20 shadow-[-1px_0_0_0_rgba(241,245,249,1)] dark:shadow-[-1px_0_0_0_rgba(30,41,59,1)] align-middle text-center w-16 transition-colors">
+                                            <span class={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${row.francosCorrectos ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-400'}`}>
+                                                {row.francosTotales}
+                                            </span>
+                                        </td>
+                                    </tr>
                                 ))}
+                            </tbody>
 
-                                {/* Francos Total Column - Sticky Right */}
-                                <th class="px-2 py-3 sticky right-0 z-40 bg-slate-50 dark:bg-slate-800/90 shadow-[-1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[-1px_0_0_0_rgba(51,65,85,1)] text-center text-slate-600 dark:text-slate-400 w-16 select-none transition-colors" title={`Objetivo: ${targetFrancos.value} francos libres`}>
-                                    Σ F. ({targetFrancos.value})
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 relative z-0 transition-colors">
-                            {dataComputed.value.rows.map(row => (
-                                <tr key={row.staff.id} class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors h-11">
+                            {/* FOOTER : Validación 2: Cobertura Diaria */}
+                            <tfoot class="sticky bottom-0 z-30 bg-white dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)] transition-colors">
+                                <tr class="tracking-tight border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+                                    <th class="px-4 py-3 border-r border-slate-300 dark:border-slate-800 sticky left-0 z-40 bg-slate-100 dark:bg-slate-800/90 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] text-md font-bold text-right text-slate-700 dark:text-slate-300 transition-colors">
+                                        Cobertura Requerida
+                                    </th>
 
-                                    {/* Staff Name - Sticky Left */}
-                                    <td class="px-4 py-1.5 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80 sticky left-0 z-20 shadow-[1px_0_0_0_rgba(241,245,249,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] transition-colors">
-                                        <div class="font-medium truncate text-slate-800 dark:text-slate-200 text-[13px]" title={row.staff.nombre}>{row.staff.nombre}</div>
-                                    </td>
-
-                                    {/* Interactive Cells ~40x40px */}
                                     {daysData.value.map(day => {
-                                        const { state, isViolation } = row.cells[day.fechaString];
+                                        const totals = dataComputed.value.dailyTotals[day.fechaString];
+                                        const mOk = totals.M >= props.config.min_manana && totals.M <= props.config.max_manana;
+                                        const tOk = totals.T >= props.config.min_tarde && totals.T <= props.config.max_tarde;
+                                        const nOk = totals.N >= props.config.min_noche && totals.N <= props.config.max_noche;
+
                                         return (
-                                            <td key={`${row.staff.id}-${day.fechaString}`} class={`p-1 border-r border-slate-100 dark:border-slate-800 text-center align-middle transition-colors ${day.isWeekend ? 'bg-indigo-50/20 dark:bg-indigo-900/10' : ''}`}>
-                                                <button
-                                                    onClick$={() => handleCellClick(row.staff.id, day.fechaString, state)}
-                                                    class={`w-9 h-9 md:w-10 md:h-10 mx-auto text-[13px] flex items-center justify-center font-bold rounded-md transition-all cursor-pointer ${getCellColor(state, isViolation)}`}
-                                                    title={`Asignar turno a ${row.staff.nombre} el ${day.dia}${isViolation ? ' (Infracción: Regla de 24hs de descanso)' : ''}`}
-                                                    type="button"
-                                                >
-                                                    {getCellLabel(state)}
-                                                </button>
+                                            <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 dark:border-slate-800 text-center bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur align-middle transition-colors">
+                                                <div class="flex flex-col items-center justify-center gap-1 text-md font-mono leading-none font-semibold">
+                                                    <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>M:{totals.M}</span>
+                                                    <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>T:{totals.T}</span>
+                                                    <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>N:{totals.N}</span>
+                                                </div>
                                             </td>
                                         )
                                     })}
 
-                                    {/* Validación 1: Francos Totales - Sticky Right */}
-                                    <td class="px-3 py-2 bg-white dark:bg-slate-900 group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80 sticky right-0 z-20 shadow-[-1px_0_0_0_rgba(241,245,249,1)] dark:shadow-[-1px_0_0_0_rgba(30,41,59,1)] align-middle text-center w-16 transition-colors">
-                                        <span class={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${row.francosCorrectos ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-400'}`}>
-                                            {row.francosTotales}
-                                        </span>
-                                    </td>
+                                    <th class="px-3 py-2 sticky right-0 z-40 bg-slate-100 dark:bg-slate-800/90 border-l border-slate-300 dark:border-slate-800 shadow-[-1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[-1px_0_0_0_rgba(51,65,85,1)] text-center text-xs text-slate-500 font-medium transition-colors"></th>
                                 </tr>
-                            ))}
-                        </tbody>
-
-                        {/* FOOTER : Validación 2: Cobertura Diaria */}
-                        <tfoot class="sticky bottom-0 z-30 bg-white dark:bg-slate-900 border-t border-slate-300 dark:border-slate-700 shadow-[0_-1px_3px_0_rgba(0,0,0,0.05)] transition-colors">
-                            <tr class="tracking-tight border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-                                <th class="px-4 py-3 border-r border-slate-300 dark:border-slate-800 sticky left-0 z-40 bg-slate-100 dark:bg-slate-800/90 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] text-md font-bold text-right text-slate-700 dark:text-slate-300 transition-colors">
-                                    Cobertura Requerida
-                                </th>
-
-                                {daysData.value.map(day => {
-                                    const totals = dataComputed.value.dailyTotals[day.fechaString];
-                                    const mOk = totals.M >= props.config.min_manana && totals.M <= props.config.max_manana;
-                                    const tOk = totals.T >= props.config.min_tarde && totals.T <= props.config.max_tarde;
-                                    const nOk = totals.N >= props.config.min_noche && totals.N <= props.config.max_noche;
-
-                                    return (
-                                        <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 dark:border-slate-800 text-center bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur align-middle transition-colors">
-                                            <div class="flex flex-col items-center justify-center gap-1 text-md font-mono leading-none font-semibold">
-                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${mOk ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>M:{totals.M}</span>
-                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${tOk ? "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>T:{totals.T}</span>
-                                                <span class={`w-full text-center rounded-sm py-0.5 px-1 ${nOk ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400" : "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400"}`}>N:{totals.N}</span>
-                                            </div>
-                                        </td>
-                                    )
-                                })}
-
-                                <th class="px-3 py-2 sticky right-0 z-40 bg-slate-100 dark:bg-slate-800/90 border-l border-slate-300 dark:border-slate-800 shadow-[-1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[-1px_0_0_0_rgba(51,65,85,1)] text-center text-xs text-slate-500 font-medium transition-colors"></th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
             </div>
 
             {/* ERROR DE INFRACCIÓN GLOBAL EN LA PARTE INFERIOR */}
