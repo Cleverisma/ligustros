@@ -1,14 +1,15 @@
 import { component$, useComputed$, $, useSignal, useTask$, useOnDocument } from '@builder.io/qwik';
 import type { ActionStore } from '@builder.io/qwik-city';
-import type { TurnoAsignado, Staff, ReglaDisponibilidad } from '../../types';
+import type { TurnoAsignado, Staff, ReglaDisponibilidad, ConfiguracionGlobal } from '../../types';
 
-interface RosterGridProps {
+export interface RosterGridProps {
+    staffList: Staff[];
     assignments: TurnoAsignado[];
     rules: ReglaDisponibilidad[];
-    staffList: Staff[];
-    anio: number;
     mes: number;
+    anio: number;
     toggleAction: ActionStore<any, any, true>;
+    config: ConfiguracionGlobal;
 }
 
 export const RosterGrid = component$<RosterGridProps>((props) => {
@@ -118,7 +119,7 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
             return {
                 staff: staffMember,
                 francosTotales: francosCount,
-                francosCorrectos: francosCount === targetF, // Validación 1
+                francosCorrectos: francosCount === targetF, // Validación 1 usa targetFrancos
                 cells: cellData
             };
         });
@@ -333,9 +334,9 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
                                 {daysData.value.map(day => {
                                     const totals = dataComputed.value.dailyTotals[day.fechaString];
-                                    const mOk = totals.M >= 5 && totals.M <= 6;
-                                    const tOk = totals.T >= 5 && totals.T <= 6;
-                                    const nOk = totals.N === 2;
+                                    const mOk = totals.M >= props.config.min_manana && totals.M <= props.config.max_manana;
+                                    const tOk = totals.T >= props.config.min_tarde && totals.T <= props.config.max_tarde;
+                                    const nOk = totals.N >= props.config.min_noche && totals.N <= props.config.max_noche;
 
                                     return (
                                         <td key={`footer-${day.fechaString}`} class="p-1 px-1.5 border-r border-slate-200 dark:border-slate-800 text-center bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur align-middle transition-colors">

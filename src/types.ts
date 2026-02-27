@@ -17,3 +17,15 @@ export interface TurnoAsignado {
     turno: "Mañana" | "Tarde" | "Noche";
     staff_id: string;
 }
+
+export interface ConfiguracionGlobal {
+    id: string; // 'default'
+    francos_mes_corto: number;
+    francos_mes_largo: number;
+    min_manana: number;
+    max_manana: number;
+    min_tarde: number;
+    max_tarde: number;
+    min_noche: number;
+    max_noche: number;
+}

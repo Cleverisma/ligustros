@@ -3,13 +3,30 @@ import { routeLoader$, globalAction$, zod$, z, type DocumentHead, useLocation, L
 import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
 import { RosterGrid } from '../components/dashboard/RosterGrid';
-import type { Staff, TurnoAsignado, ReglaDisponibilidad } from '../types';
+import type { Staff, TurnoAsignado, ReglaDisponibilidad, ConfiguracionGlobal } from '../types';
 
 // --- LOADERS ---
 export const useStaffLoader = routeLoader$(async (requestEvent) => {
   const db = getDbClient(requestEvent.env);
   const result = await db.execute('SELECT * FROM staff ORDER BY nombre ASC');
   return result.rows as unknown as Staff[];
+});
+
+export const useConfigLoader = routeLoader$(async (requestEvent) => {
+  const db = getDbClient(requestEvent.env);
+  try {
+    const result = await db.execute("SELECT * FROM configuracion_global WHERE id = 'default'");
+    if (result.rows.length > 0) {
+      return result.rows[0] as unknown as ConfiguracionGlobal;
+    }
+  } catch (e) {
+    console.warn('Config table missing, using defaults.', e);
+  }
+
+  return {
+    id: 'default', francos_mes_corto: 6, francos_mes_largo: 7,
+    min_manana: 5, max_manana: 6, min_tarde: 5, max_tarde: 6, min_noche: 2, max_noche: 2
+  } as ConfiguracionGlobal;
 });
 
 export const useAssignmentsLoader = routeLoader$(async (requestEvent) => {
@@ -160,6 +177,7 @@ export default component$(() => {
   const staff = useStaffLoader();
   const assignments = useAssignmentsLoader();
   const rules = useRulesLoader();
+  const configData = useConfigLoader();
   const manageStaffAction = useManageStaffAction();
   const toggleShiftAction = useToggleShiftAction();
 
@@ -183,6 +201,13 @@ export default component$(() => {
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <ThemeToggle />
+            <Link
+              href="/configuracion"
+              class="inline-flex shrink-0 items-center justify-center p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/40 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              title="Configuración de Reglas"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </Link>
             <button
               onClick$={$(async () => {
                 const html2canvas = (await import('html2canvas-pro')).default;
@@ -291,7 +316,7 @@ export default component$(() => {
               </button>
             </div>
           ) : (
-            <RosterGrid staffList={staff.value} assignments={assignments.value} rules={rules.value} mes={currentMes} anio={currentAnio} toggleAction={toggleShiftAction} />
+            <RosterGrid staffList={staff.value} assignments={assignments.value} rules={rules.value} mes={currentMes} anio={currentAnio} toggleAction={toggleShiftAction} config={configData.value} />
           )}
         </main>
       </div>
