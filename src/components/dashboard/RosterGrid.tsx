@@ -10,6 +10,7 @@ export interface RosterGridProps {
     anio: number;
     toggleAction: ActionStore<any, any, true>;
     autoGenerateAction: ActionStore<any, any, true>;
+    generateCSPAction: ActionStore<any, any, true>;
     config: ConfiguracionGlobal;
 }
 
@@ -87,7 +88,26 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
         // 2. Filas (Empleados)
         const maxDias = diasDelMes.value;
         const targetF = targetFrancos.value;
-        const rows = props.staffList.map(staffMember => {
+
+        // Ordenar staff: Mañana -> Tarde -> Noche
+        const getShiftWeight = (staffMember: Staff) => {
+            const rawOptions = staffMember.modalidad_turno || staffMember.turno_preferido || '';
+            const shifts = rawOptions.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+
+            if (shifts.includes('M') || rawOptions === 'MIXTO' || rawOptions === '') return 1;
+            if (shifts.includes('T')) return 2;
+            if (shifts.includes('N')) return 3;
+            return 4;
+        };
+
+        const sortedStaff = [...props.staffList].sort((a, b) => {
+            const weightA = getShiftWeight(a);
+            const weightB = getShiftWeight(b);
+            if (weightA !== weightB) return weightA - weightB;
+            return a.nombre.localeCompare(b.nombre, 'es');
+        });
+
+        const rows = sortedStaff.map(staffMember => {
             const francosCount = rules.filter(r => r.staff_id === staffMember.id && r.tipo === 'Franco').length;
 
             const cellData: Record<string, { state: string; isViolation: boolean }> = {};

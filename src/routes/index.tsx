@@ -4,6 +4,7 @@ import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
 import { RosterGrid } from '../components/dashboard/RosterGrid';
 import type { Staff, TurnoAsignado, ReglaDisponibilidad, ConfiguracionGlobal } from '../types';
+import { generateSchedule, type StaffCSP, type Turno, type ConfigCSP } from '../utils/scheduler';
 
 // --- LOADERS ---
 export const useStaffLoader = routeLoader$(async (requestEvent) => {
@@ -386,6 +387,126 @@ export const useAutoGenerateMonthAction = globalAction$(
   })
 );
 
+export const useGenerateScheduleAction = globalAction$(
+  async (data, requestEvent) => {
+    const db = getDbClient(requestEvent.env);
+
+    const targetAnio = data.anio;
+    const targetMes = data.mes;
+
+    // 1. Fetch staff
+    const staffResult = await db.execute('SELECT * FROM staff ORDER BY nombre ASC');
+    const dbStaffList = staffResult.rows as unknown as Staff[];
+
+    if (dbStaffList.length === 0) {
+      return requestEvent.fail(400, { message: 'No hay personal registrado para generar turnos.' });
+    }
+
+    // 2. Fetch config
+    let config: ConfiguracionGlobal = {
+      id: 'default', francos_mes_corto: 6, francos_mes_largo: 7,
+      min_manana: 5, max_manana: 6, min_tarde: 5, max_tarde: 6, min_noche: 2, max_noche: 2
+    };
+    try {
+      const configResult = await db.execute("SELECT * FROM configuracion_global WHERE id = 'default'");
+      if (configResult.rows.length > 0) {
+        config = configResult.rows[0] as unknown as ConfiguracionGlobal;
+      }
+    } catch (e) {
+      console.warn('Config table missing, using defaults.', e);
+    }
+
+    // 3. Map Data for Algorithm
+    const staffMapped: StaffCSP[] = dbStaffList.map(s => {
+      let enabledTurnos: Exclude<Turno, 'Franco' | 'Vacio'>[] = [];
+      const rawOptions = s.modalidad_turno || s.turno_preferido || '';
+
+      if (rawOptions === 'MIXTO' || rawOptions === '') {
+        enabledTurnos = ['Mañana', 'Tarde', 'Noche'];
+      } else {
+        const letters = rawOptions.split(',').map(l => l.trim()).filter(Boolean);
+        if (letters.includes('M')) enabledTurnos.push('Mañana');
+        if (letters.includes('T')) enabledTurnos.push('Tarde');
+        if (letters.includes('N')) enabledTurnos.push('Noche');
+      }
+
+      return {
+        id: s.id,
+        nombre: s.nombre,
+        rol: s.rol,
+        turnosHabilitados: enabledTurnos,
+      };
+    }).filter(s => s.turnosHabilitados.length > 0);
+
+    // 4. Force Numbers on Config and Execute CSP Algorithm
+    const configCSP: ConfigCSP = {
+      francos_mes_corto: Number(config.francos_mes_corto) || 6,
+      francos_mes_largo: Number(config.francos_mes_largo) || 7,
+      min_manana: Number(config.min_manana) || 0,
+      max_manana: Number(config.max_manana) || 0,
+      min_tarde: Number(config.min_tarde) || 0,
+      max_tarde: Number(config.max_tarde) || 0,
+      min_noche: Number(config.min_noche) || 2, // Fallback vital para las noches
+      max_noche: Number(config.max_noche) || 2,
+    };
+
+    const cspResult = generateSchedule(staffMapped, configCSP, targetAnio, targetMes);
+
+    // 5. Persist Output in Turso
+    const batchStatements: any[] = [];
+    const targetMonthStr = `${targetAnio}-${String(targetMes).padStart(2, '0')}`;
+    const diasDelMes = new Date(targetAnio, targetMes, 0).getDate();
+
+    // A) DELETE previous month data
+    batchStatements.push({
+      sql: "DELETE FROM turnos_asignados WHERE strftime('%Y-%m', dia) = ?",
+      args: [targetMonthStr]
+    });
+    batchStatements.push({
+      sql: "DELETE FROM reglas_disponibilidad WHERE strftime('%Y-%m', fecha) = ? AND tipo = 'Franco'",
+      args: [targetMonthStr]
+    });
+
+    // B) Iterate result and prepare INSERTs
+    for (const staffId in cspResult) {
+      const schedule = cspResult[staffId];
+      // Algorithm index 0 = dia 1
+      for (let dayIndex = 0; dayIndex < schedule.length && dayIndex < diasDelMes; dayIndex++) {
+        const diaInt = dayIndex + 1;
+        const fechaStr = `${targetMonthStr}-${String(diaInt).padStart(2, '0')}`;
+        const turnoToAssign: Turno = schedule[dayIndex];
+
+        if (turnoToAssign === 'Franco') {
+          // D) Add Franco rule
+          batchStatements.push({
+            sql: 'INSERT INTO reglas_disponibilidad (id, staff_id, fecha, tipo) VALUES (?, ?, ?, ?)',
+            args: [crypto.randomUUID(), staffId, fechaStr, 'Franco']
+          });
+        } else if (turnoToAssign === 'Mañana' || turnoToAssign === 'Tarde' || turnoToAssign === 'Noche') {
+          // C) Add Work Shift
+          batchStatements.push({
+            sql: 'INSERT INTO turnos_asignados (id, dia, turno, staff_id) VALUES (?, ?, ?, ?)',
+            args: [crypto.randomUUID(), fechaStr, turnoToAssign, staffId]
+          });
+        }
+      }
+    }
+
+    // E) Execute Batch
+    try {
+      await db.batch(batchStatements);
+      return { success: true, count: batchStatements.length };
+    } catch (e: any) {
+      console.error("Error CSP batch insert:", e);
+      return requestEvent.fail(500, { message: 'Error interno guardando la generación CSP.', error: e.message });
+    }
+  },
+  zod$({
+    anio: z.number().int().min(2000).max(2100),
+    mes: z.number().int().min(1).max(12)
+  })
+);
+
 // Main Dashboard Page
 export default component$(() => {
   const loc = useLocation();
@@ -396,6 +517,7 @@ export default component$(() => {
   const manageStaffAction = useManageStaffAction();
   const toggleShiftAction = useToggleShiftAction();
   const autoGenerateAction = useAutoGenerateMonthAction();
+  const generateCSPAction = useGenerateScheduleAction();
 
   const hoy = new Date();
   const paramAnio = loc.url.searchParams.get('anio');
@@ -541,6 +663,7 @@ export default component$(() => {
               toggleAction={toggleShiftAction}
               config={configData.value}
               autoGenerateAction={autoGenerateAction}
+              generateCSPAction={generateCSPAction}
             />
           )}
         </main>
