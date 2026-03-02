@@ -108,7 +108,7 @@ export const useManageStaffAction = globalAction$(
     id: z.string().optional(),
     nombre: z.string().min(2).optional(),
     rol: z.string().optional(),
-    modalidad_turno: z.enum(['M', 'T', 'N', 'MIXTO']).optional(),
+    modalidad_turno: z.string().optional(),
   })
 );
 
@@ -239,30 +239,40 @@ export const useAutoGenerateMonthAction = globalAction$(
       }
     });
 
-    // --- PHASE 2: Fixed Shifts ---
+    // Helper: parse comma-separated modalidad_turno into array of full shift names
+    const getStaffTurnos = (s: Staff): string[] => {
+      const raw = s.modalidad_turno || s.turno_preferido || '';
+      // Handle legacy 'MIXTO' value
+      if (raw === 'MIXTO' || raw === '') return ['Mañana', 'Tarde', 'Noche'];
+      const map: Record<string, string> = { M: 'Mañana', T: 'Tarde', N: 'Noche', 'Mañana': 'Mañana', 'Tarde': 'Tarde', 'Noche': 'Noche' };
+      return raw.split(',').map(l => map[l.trim()]).filter(Boolean);
+    };
+
+    const isTransitionValid = (turnoAyer: string | null, turnoHoy: string) => {
+      if (!turnoAyer || turnoAyer === 'Franco') return true;
+      if (turnoHoy === 'Franco') return true;
+      if (turnoAyer === 'Mañana') return turnoHoy === 'Mañana' || turnoHoy === 'Tarde';
+      if (turnoAyer === 'Tarde') return turnoHoy === 'Tarde' || turnoHoy === 'Noche';
+      if (turnoAyer === 'Noche') return turnoHoy === 'Noche';
+      return true;
+    };
+
+    // --- PHASE 2: Fixed Shifts (employees with exactly 1 enabled shift) ---
     staffList.forEach(staff => {
-      const modalidad = staff.modalidad_turno || staff.turno_preferido;
+      const turnos = getStaffTurnos(staff);
+      if (turnos.length !== 1) return; // Not fixed — handled in Phase 3
 
-      let turnoFijo: string | null = null;
-      if (modalidad === 'M' || modalidad === 'Mañana') turnoFijo = 'Mañana';
-      else if (modalidad === 'T' || modalidad === 'Tarde') turnoFijo = 'Tarde';
-      else if (modalidad === 'N' || modalidad === 'Noche') turnoFijo = 'Noche';
-
-      if (turnoFijo) {
-        for (let dia = 1; dia <= diasDelMes; dia++) {
-          const f = getFechaStr(dia);
-          if (assignmentsMemory[staff.id][f] !== 'Franco') {
-            assignmentsMemory[staff.id][f] = turnoFijo;
-          }
+      const turnoFijo = turnos[0];
+      for (let dia = 1; dia <= diasDelMes; dia++) {
+        const f = getFechaStr(dia);
+        if (assignmentsMemory[staff.id][f] !== 'Franco') {
+          assignmentsMemory[staff.id][f] = turnoFijo;
         }
       }
     });
 
-    // --- PHASE 3: Mixtos Balancing ---
-    const mixtos = staffList.filter(s => {
-      const mod = s.modalidad_turno || s.turno_preferido;
-      return mod === 'MIXTO' || !mod;
-    });
+    // --- PHASE 3: Flexible Balancing (employees with >1 enabled shift) ---
+    const flexibles = staffList.filter(s => getStaffTurnos(s).length > 1);
 
     for (let dia = 1; dia <= diasDelMes; dia++) {
       const f = getFechaStr(dia);
@@ -276,33 +286,52 @@ export const useAutoGenerateMonthAction = globalAction$(
         if (t === 'Noche') covN++;
       });
 
-      const availableMixtos = [...mixtos].sort(() => 0.5 - Math.random());
+      const availableFlexibles = [...flexibles].sort(() => 0.5 - Math.random());
 
-      for (const staff of availableMixtos) {
+      for (const staff of availableFlexibles) {
         if (assignmentsMemory[staff.id][f]) continue;
 
+        const turnos = getStaffTurnos(staff);
         const turnoAyer = ayer ? assignmentsMemory[staff.id][ayer] : null;
 
-        if (covM < config.min_manana && turnoAyer !== 'Noche' && turnoAyer !== 'Tarde') {
+        // Try to fill minimums first, respecting modality and transition rules
+        if (covM < config.min_manana && turnos.includes('Mañana') && isTransitionValid(turnoAyer, 'Mañana')) {
           assignmentsMemory[staff.id][f] = 'Mañana';
           covM++;
-        } else if (covT < config.min_tarde && turnoAyer !== 'Noche') {
+        } else if (covT < config.min_tarde && turnos.includes('Tarde') && isTransitionValid(turnoAyer, 'Tarde')) {
           assignmentsMemory[staff.id][f] = 'Tarde';
           covT++;
-        } else if (covN < config.min_noche) {
+        } else if (covN < config.min_noche && turnos.includes('Noche') && isTransitionValid(turnoAyer, 'Noche')) {
           assignmentsMemory[staff.id][f] = 'Noche';
           covN++;
         } else {
-          if (Math.random() < 0.8 && turnoAyer !== 'Noche' && turnoAyer !== 'Tarde' && covM < config.max_manana) {
+          // Fill to max — pick first valid enabled shift
+          let assigned = false;
+          if (turnos.includes('Mañana') && covM < config.max_manana && isTransitionValid(turnoAyer, 'Mañana')) {
             assignmentsMemory[staff.id][f] = 'Mañana';
             covM++;
-          } else if (turnoAyer !== 'Noche' && covT < config.max_tarde) {
+            assigned = true;
+          }
+          if (!assigned && turnos.includes('Tarde') && covT < config.max_tarde && isTransitionValid(turnoAyer, 'Tarde')) {
             assignmentsMemory[staff.id][f] = 'Tarde';
             covT++;
-          } else {
-            assignmentsMemory[staff.id][f] = 'Mañana';
-            if (turnoAyer === 'Noche' || turnoAyer === 'Tarde') {
-              assignmentsMemory[staff.id][f] = 'Tarde';
+            assigned = true;
+          }
+          if (!assigned && turnos.includes('Noche') && covN < config.max_noche && isTransitionValid(turnoAyer, 'Noche')) {
+            assignmentsMemory[staff.id][f] = 'Noche';
+            covN++;
+            assigned = true;
+          }
+          if (!assigned) {
+            // Fallback: assign first enabled shift even over max (avoid leaving blank)
+            for (const t of turnos) {
+              if (isTransitionValid(turnoAyer, t)) {
+                assignmentsMemory[staff.id][f] = t;
+                if (t === 'Mañana') covM++;
+                if (t === 'Tarde') covT++;
+                if (t === 'Noche') covN++;
+                break;
+              }
             }
           }
         }

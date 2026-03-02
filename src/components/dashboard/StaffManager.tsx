@@ -3,7 +3,7 @@ import { Form } from '@builder.io/qwik-city';
 import type { ActionStore } from '@builder.io/qwik-city';
 
 interface StaffManagerProps {
-    staffList: Array<{ id: string; nombre: string; rol: string; modalidad_turno?: 'M' | 'T' | 'N' | 'MIXTO'; }>;
+    staffList: Array<{ id: string; nombre: string; rol: string; modalidad_turno?: string; }>;
     manageAction: ActionStore<any, any, true>;
 }
 
@@ -74,14 +74,29 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
         return "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700"; // Default
     };
 
-    const getModalidadBadge = (modalidad?: string) => {
-        switch (modalidad) {
-            case 'M': return <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50" title="Fijo - Mañana">M</span>;
-            case 'T': return <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800/50" title="Fijo - Tarde">T</span>;
-            case 'N': return <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50" title="Fijo - Noche">N</span>;
-            case 'MIXTO': return <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600" title="Comodín - Mixto">MIXTO</span>;
-            default: return null;
+    const getModalidadBadges = (modalidad?: string) => {
+        if (!modalidad) return null;
+        // Handle legacy 'MIXTO' value
+        if (modalidad === 'MIXTO') {
+            return (
+                <>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">M</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800/50">T</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">N</span>
+                </>
+            );
         }
+        const letters = modalidad.split(',').map(l => l.trim()).filter(Boolean);
+        return (
+            <>
+                {letters.map(l => {
+                    if (l === 'M') return <span key="M" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50" title="Mañana">M</span>;
+                    if (l === 'T') return <span key="T" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800/50" title="Tarde">T</span>;
+                    if (l === 'N') return <span key="N" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50" title="Noche">N</span>;
+                    return null;
+                })}
+            </>
+        );
     };
 
     return (
@@ -115,7 +130,7 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
                                             <span class={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium border ${getBadgeStyle(empleado.rol)} capitalize tracking-wide`}>
                                                 {empleado.rol || 'General'}
                                             </span>
-                                            {getModalidadBadge(empleado.modalidad_turno)}
+                                            {getModalidadBadges(empleado.modalidad_turno)}
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity">
@@ -198,21 +213,49 @@ export const StaffManager = component$<StaffManagerProps>((props) => {
                                 />
                             </div>
                             <div>
-                                <label for="modalidad_turno" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wide">Modalidad de Turno</label>
-                                <select
-                                    id="modalidad_turno"
-                                    name="modalidad_turno"
-                                    required
-                                    value={editModalidad.value}
-                                    onChange$={(e) => editModalidad.value = (e.target as HTMLSelectElement).value}
-                                    class="w-full rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                                >
-                                    <option value="" disabled selected={!editModalidad.value}>Seleccionar modalidad...</option>
-                                    <option value="M">Fijo - Mañana</option>
-                                    <option value="T">Fijo - Tarde</option>
-                                    <option value="N">Fijo - Noche</option>
-                                    <option value="MIXTO">Comodín - Mixto</option>
-                                </select>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Turnos Habilitados</label>
+                                <input type="hidden" name="modalidad_turno" value={editModalidad.value} />
+                                <div class="flex items-center gap-3">
+                                    {[
+                                        { key: 'M', label: 'Mañana', color: 'emerald' },
+                                        { key: 'T', label: 'Tarde', color: 'orange' },
+                                        { key: 'N', label: 'Noche', color: 'indigo' },
+                                    ].map(opt => {
+                                        const letters = editModalidad.value.split(',').filter(Boolean);
+                                        const isChecked = letters.includes(opt.key);
+                                        const colorMap: Record<string, string> = {
+                                            emerald: isChecked
+                                                ? 'bg-emerald-100 dark:bg-emerald-900/50 border-emerald-400 dark:border-emerald-600 text-emerald-800 dark:text-emerald-200 ring-emerald-500'
+                                                : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400',
+                                            orange: isChecked
+                                                ? 'bg-orange-100 dark:bg-orange-900/50 border-orange-400 dark:border-orange-600 text-orange-800 dark:text-orange-200 ring-orange-500'
+                                                : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400',
+                                            indigo: isChecked
+                                                ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-400 dark:border-indigo-600 text-indigo-800 dark:text-indigo-200 ring-indigo-500'
+                                                : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400',
+                                        };
+                                        return (
+                                            <button
+                                                key={opt.key}
+                                                type="button"
+                                                onClick$={() => {
+                                                    const current = editModalidad.value.split(',').filter(Boolean);
+                                                    if (current.includes(opt.key)) {
+                                                        editModalidad.value = current.filter(k => k !== opt.key).join(',');
+                                                    } else {
+                                                        editModalidad.value = [...current, opt.key].join(',');
+                                                    }
+                                                }}
+                                                class={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all cursor-pointer select-none ${colorMap[opt.color]} ${isChecked ? 'ring-2 ring-offset-1 dark:ring-offset-slate-900 shadow-sm' : 'hover:border-slate-400 dark:hover:border-slate-500'}`}
+                                            >
+                                                <span class={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${isChecked ? 'border-current bg-current' : 'border-slate-400 dark:border-slate-500'}`}>
+                                                    {isChecked && <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>}
+                                                </span>
+                                                {opt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
 

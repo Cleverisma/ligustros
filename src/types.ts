@@ -2,8 +2,8 @@ export interface Staff {
     id: string;
     nombre: string;
     rol: string;
-    turno_preferido?: 'Mañana' | 'Tarde' | 'Noche';
-    modalidad_turno?: 'M' | 'T' | 'N' | 'MIXTO';
+    turno_preferido?: string;
+    modalidad_turno?: string; // Comma-separated: "M", "M,T", etc.Comma-separated: "M", "M,T,N", etc.
 }
 
 export interface ReglaDisponibilidad {
