@@ -166,7 +166,13 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
     // Detectar globalmente si hay alguna violación de descanso o francos en la tabla actual
     const hasViolations = useComputed$(() => {
         const hasRestViolations = dataComputed.value.rows.some(r => Object.values(r.cells).some(c => c.isViolation));
-        const hasFrancoViolations = dataComputed.value.rows.some(r => !r.francosCorrectos);
+        
+        // Únicamente mostramos error de francos si *todo el mes* ya fue asignado (no quedan Vacíos)
+        const isMonthComplete = dataComputed.value.rows.every(r => 
+            Object.values(r.cells).every(c => c.state !== 'Vacío')
+        );
+        const hasFrancoViolations = isMonthComplete && dataComputed.value.rows.some(r => !r.francosCorrectos);
+        
         return { hasRestViolations, hasFrancoViolations };
     });
 

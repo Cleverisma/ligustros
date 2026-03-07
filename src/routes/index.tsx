@@ -450,7 +450,7 @@ export const useGenerateScheduleAction = globalAction$(
       max_noche: Number(config.max_noche) || 2,
     };
 
-    const cspResult = generateSchedule(staffMapped, configCSP, targetAnio, targetMes);
+    const cspResult = await generateSchedule(staffMapped, configCSP, targetAnio, targetMes);
 
     // 5. Persist Output in Turso
     const batchStatements: any[] = [];
