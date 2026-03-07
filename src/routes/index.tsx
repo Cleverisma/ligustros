@@ -4,7 +4,7 @@ import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
 import { RosterGrid } from '../components/dashboard/RosterGrid';
 import type { Staff, TurnoAsignado, ReglaDisponibilidad, ConfiguracionGlobal } from '../types';
-import { generateSchedule, type StaffCSP, type Turno, type ConfigCSP } from '../utils/scheduler';
+import { type StaffCSP, type Turno, type ConfigCSP, generarMatrizTurnos } from '../lib/scheduler';
 
 // --- LOADERS ---
 export const useStaffLoader = routeLoader$(async (requestEvent) => {
@@ -450,12 +450,17 @@ export const useGenerateScheduleAction = globalAction$(
       max_noche: Number(config.max_noche) || 2,
     };
 
-    const cspResult = await generateSchedule(staffMapped, configCSP, targetAnio, targetMes);
+    const diasDelMes = new Date(targetAnio, targetMes, 0).getDate();
+    let cspResult;
+    try {
+      cspResult = generarMatrizTurnos(staffMapped, configCSP, diasDelMes);
+    } catch (e: any) {
+      return requestEvent.fail(400, { message: e.message });
+    }
 
     // 5. Persist Output in Turso
     const batchStatements: any[] = [];
     const targetMonthStr = `${targetAnio}-${String(targetMes).padStart(2, '0')}`;
-    const diasDelMes = new Date(targetAnio, targetMes, 0).getDate();
 
     // A) DELETE previous month data
     batchStatements.push({
