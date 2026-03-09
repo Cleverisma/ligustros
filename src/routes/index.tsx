@@ -4,7 +4,6 @@ import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
 import { RosterGrid } from '../components/dashboard/RosterGrid';
 import type { Staff, TurnoAsignado, ReglaDisponibilidad, ConfiguracionGlobal } from '../types';
-import { type StaffCSP, type Turno, type ConfigCSP, generarMatrizTurnos } from '../lib/scheduler';
 
 // --- LOADERS ---
 export const useStaffLoader = routeLoader$(async (requestEvent) => {
@@ -145,6 +144,56 @@ export const toggleShiftServer = server$(async function(data: { staff_id: string
   return { success: true };
 });
 
+export const useSaveGeneratedRosterAction = globalAction$(
+  async (data, requestEvent) => {
+    const db = getDbClient(requestEvent.env);
+    const targetMonthStr = `${data.anio}-${String(data.mes).padStart(2, '0')}`;
+    const daysInMonth = new Date(data.anio, data.mes, 0).getDate();
+    const firstDay = `${targetMonthStr}-01`;
+    const lastDay = `${targetMonthStr}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const batchStatements: any[] = [
+      {
+        sql: "DELETE FROM turnos_asignados WHERE dia >= ? AND dia <= ?",
+        args: [firstDay, lastDay]
+      },
+      {
+        sql: "DELETE FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco'",
+        args: [firstDay, lastDay]
+      }
+    ];
+
+    const asignaciones = data.asignaciones as { staff_id: string, dia: string, turno: string }[];
+
+    asignaciones.forEach(a => {
+      if (a.turno === 'Franco') {
+        batchStatements.push({
+          sql: 'INSERT INTO reglas_disponibilidad (id, staff_id, fecha, tipo) VALUES (?, ?, ?, ?)',
+          args: [crypto.randomUUID(), a.staff_id, a.dia, 'Franco']
+        });
+      } else if (a.turno !== 'Vacio') {
+        batchStatements.push({
+          sql: 'INSERT INTO turnos_asignados (id, dia, turno, staff_id) VALUES (?, ?, ?, ?)',
+          args: [crypto.randomUUID(), a.dia, a.turno, a.staff_id]
+        });
+      }
+    });
+
+    try {
+      await db.batch(batchStatements);
+      return { success: true, count: batchStatements.length };
+    } catch (e: any) {
+      console.error("Error validando guardado masivo en lote:", e);
+      return requestEvent.fail(500, { message: 'Error en base de datos.', error: e.message });
+    }
+  },
+  zod$({
+    anio: z.number().int().min(2000).max(2100),
+    mes: z.number().int().min(1).max(12),
+    asignaciones: z.any() 
+  })
+);
+
 export const ThemeToggle = component$(() => {
   const isDark = useSignal<boolean>(false);
 
@@ -179,341 +228,7 @@ export const ThemeToggle = component$(() => {
   );
 });
 
-export const useAutoGenerateMonthAction = globalAction$(
-  async (data, requestEvent) => {
-    const db = getDbClient(requestEvent.env);
 
-    const targetAnio = data.anio;
-    const targetMes = data.mes;
-
-    // 1. Fetch staff
-    const staffResult = await db.execute('SELECT * FROM staff ORDER BY nombre ASC');
-    const staffList = staffResult.rows as unknown as Staff[];
-
-    if (staffList.length === 0) {
-      return requestEvent.fail(400, { message: 'No hay personal registrado para generar turnos.' });
-    }
-
-    // 2. Fetch config
-    let config: ConfiguracionGlobal = {
-      id: 'default', francos_mes_corto: 6, francos_mes_largo: 7,
-      min_manana: 5, max_manana: 6, min_tarde: 5, max_tarde: 6, min_noche: 2, max_noche: 2
-    };
-    try {
-      const configResult = await db.execute("SELECT * FROM configuracion_global WHERE id = 'default'");
-      if (configResult.rows.length > 0) {
-        config = configResult.rows[0] as unknown as ConfiguracionGlobal;
-      }
-    } catch (e) {
-      console.warn('Config table missing, using defaults.', e);
-    }
-
-    const diasDelMes = new Date(targetAnio, targetMes, 0).getDate();
-    const targetFrancos = diasDelMes === 31 ? config.francos_mes_largo : config.francos_mes_corto;
-
-    // 3. Initialize Memory Matrix: staff_id -> fecha -> turno
-    const assignmentsMemory: Record<string, Record<string, string>> = {};
-    staffList.forEach(s => {
-      assignmentsMemory[s.id] = {};
-    });
-
-    const targetMonthStr = `${targetAnio}-${String(targetMes).padStart(2, '0')}`;
-    const getFechaStr = (dia: number) => `${targetMonthStr}-${String(dia).padStart(2, '0')}`;
-
-    // --- PHASE 1: Francos ---
-    staffList.forEach((staff, index) => {
-      const step = diasDelMes / targetFrancos;
-      const offset = index % Math.floor(step);
-
-      for (let i = 0; i < targetFrancos; i++) {
-        let day = Math.round(1 + offset + i * step);
-        if (day > diasDelMes) day = diasDelMes;
-
-        while (assignmentsMemory[staff.id][getFechaStr(day)] === 'Franco' && day < diasDelMes) {
-          day++;
-        }
-        while (assignmentsMemory[staff.id][getFechaStr(day)] === 'Franco' && day > 1) {
-          day--;
-        }
-        assignmentsMemory[staff.id][getFechaStr(day)] = 'Franco';
-      }
-    });
-
-    // Helper: parse comma-separated modalidad_turno into array of full shift names
-    const getStaffTurnos = (s: Staff): string[] => {
-      const raw = s.modalidad_turno || s.turno_preferido || '';
-      // Handle legacy 'MIXTO' value
-      if (raw === 'MIXTO' || raw === '') return ['Mañana', 'Tarde', 'Noche'];
-      const map: Record<string, string> = { M: 'Mañana', T: 'Tarde', N: 'Noche', 'Mañana': 'Mañana', 'Tarde': 'Tarde', 'Noche': 'Noche' };
-      return raw.split(',').map(l => map[l.trim()]).filter(Boolean);
-    };
-
-    const isTransitionValid = (turnoAyer: string | null, turnoHoy: string) => {
-      if (!turnoAyer || turnoAyer === 'Franco') return true;
-      if (turnoHoy === 'Franco') return true;
-      if (turnoAyer === 'Mañana') return turnoHoy === 'Mañana' || turnoHoy === 'Tarde';
-      if (turnoAyer === 'Tarde') return turnoHoy === 'Tarde' || turnoHoy === 'Noche';
-      if (turnoAyer === 'Noche') return turnoHoy === 'Noche';
-      return true;
-    };
-
-    // --- PHASE 2: Fixed Shifts (employees with exactly 1 enabled shift) ---
-    staffList.forEach(staff => {
-      const turnos = getStaffTurnos(staff);
-      if (turnos.length !== 1) return; // Not fixed — handled in Phase 3
-
-      const turnoFijo = turnos[0];
-      for (let dia = 1; dia <= diasDelMes; dia++) {
-        const f = getFechaStr(dia);
-        if (assignmentsMemory[staff.id][f] !== 'Franco') {
-          assignmentsMemory[staff.id][f] = turnoFijo;
-        }
-      }
-    });
-
-    // --- PHASE 3: Flexible Balancing (employees with >1 enabled shift) ---
-    const flexibles = staffList.filter(s => getStaffTurnos(s).length > 1);
-
-    for (let dia = 1; dia <= diasDelMes; dia++) {
-      const f = getFechaStr(dia);
-      const ayer = dia > 1 ? getFechaStr(dia - 1) : null;
-
-      let covM = 0; let covT = 0; let covN = 0;
-      staffList.forEach(s => {
-        const t = assignmentsMemory[s.id][f];
-        if (t === 'Mañana') covM++;
-        if (t === 'Tarde') covT++;
-        if (t === 'Noche') covN++;
-      });
-
-      const availableFlexibles = [...flexibles].sort(() => 0.5 - Math.random());
-
-      for (const staff of availableFlexibles) {
-        if (assignmentsMemory[staff.id][f]) continue;
-
-        const turnos = getStaffTurnos(staff);
-        const turnoAyer = ayer ? assignmentsMemory[staff.id][ayer] : null;
-
-        // Try to fill minimums first, respecting modality and transition rules
-        if (covM < config.min_manana && turnos.includes('Mañana') && isTransitionValid(turnoAyer, 'Mañana')) {
-          assignmentsMemory[staff.id][f] = 'Mañana';
-          covM++;
-        } else if (covT < config.min_tarde && turnos.includes('Tarde') && isTransitionValid(turnoAyer, 'Tarde')) {
-          assignmentsMemory[staff.id][f] = 'Tarde';
-          covT++;
-        } else if (covN < config.min_noche && turnos.includes('Noche') && isTransitionValid(turnoAyer, 'Noche')) {
-          assignmentsMemory[staff.id][f] = 'Noche';
-          covN++;
-        } else {
-          // Fill to max — pick first valid enabled shift
-          let assigned = false;
-          if (turnos.includes('Mañana') && covM < config.max_manana && isTransitionValid(turnoAyer, 'Mañana')) {
-            assignmentsMemory[staff.id][f] = 'Mañana';
-            covM++;
-            assigned = true;
-          }
-          if (!assigned && turnos.includes('Tarde') && covT < config.max_tarde && isTransitionValid(turnoAyer, 'Tarde')) {
-            assignmentsMemory[staff.id][f] = 'Tarde';
-            covT++;
-            assigned = true;
-          }
-          if (!assigned && turnos.includes('Noche') && covN < config.max_noche && isTransitionValid(turnoAyer, 'Noche')) {
-            assignmentsMemory[staff.id][f] = 'Noche';
-            covN++;
-            assigned = true;
-          }
-          if (!assigned) {
-            // Fallback: assign first enabled shift even over max (avoid leaving blank)
-            for (const t of turnos) {
-              if (isTransitionValid(turnoAyer, t)) {
-                assignmentsMemory[staff.id][f] = t;
-                if (t === 'Mañana') covM++;
-                if (t === 'Tarde') covT++;
-                if (t === 'Noche') covN++;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // --- EXECUTE BATCH DB ---
-    const batchStatements: any[] = [];
-    const targetMonthFirstDay = `${targetMonthStr}-01`;
-    const targetMonthLastDay = `${targetMonthStr}-${String(diasDelMes).padStart(2, '0')}`;
-
-    batchStatements.push({
-      sql: "DELETE FROM turnos_asignados WHERE dia >= ? AND dia <= ?",
-      args: [targetMonthFirstDay, targetMonthLastDay]
-    });
-    batchStatements.push({
-      sql: "DELETE FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco'",
-      args: [targetMonthFirstDay, targetMonthLastDay]
-    });
-
-    staffList.forEach(staff => {
-      for (let dia = 1; dia <= diasDelMes; dia++) {
-        const f = getFechaStr(dia);
-        const status = assignmentsMemory[staff.id][f];
-        if (status === 'Franco') {
-          batchStatements.push({
-            sql: 'INSERT INTO reglas_disponibilidad (id, staff_id, fecha, tipo) VALUES (?, ?, ?, ?)',
-            args: [crypto.randomUUID(), staff.id, f, 'Franco']
-          });
-        } else if (status === 'Mañana' || status === 'Tarde' || status === 'Noche') {
-          batchStatements.push({
-            sql: 'INSERT INTO turnos_asignados (id, dia, turno, staff_id) VALUES (?, ?, ?, ?)',
-            args: [crypto.randomUUID(), f, status, staff.id]
-          });
-        }
-      }
-    });
-
-    if (batchStatements.length === 2) {
-      return requestEvent.fail(400, { message: 'No se generaron turnos válidos.' });
-    }
-
-    try {
-      await db.batch(batchStatements);
-      return { success: true, count: batchStatements.length };
-    } catch (e: any) {
-      console.error("Error batch insert:", e);
-      return requestEvent.fail(500, { message: 'Error interno guardando la generación.', error: e.message });
-    }
-  },
-  zod$({
-    anio: z.number().int().min(2000).max(2100),
-    mes: z.number().int().min(1).max(12)
-  })
-);
-
-export const useGenerateScheduleAction = globalAction$(
-  async (data, requestEvent) => {
-    const db = getDbClient(requestEvent.env);
-
-    const targetAnio = data.anio;
-    const targetMes = data.mes;
-
-    // 1. Fetch staff
-    const staffResult = await db.execute('SELECT * FROM staff ORDER BY nombre ASC');
-    const dbStaffList = staffResult.rows as unknown as Staff[];
-
-    if (dbStaffList.length === 0) {
-      return requestEvent.fail(400, { message: 'No hay personal registrado para generar turnos.' });
-    }
-
-    // 2. Fetch config
-    let config: ConfiguracionGlobal = {
-      id: 'default', francos_mes_corto: 6, francos_mes_largo: 7,
-      min_manana: 5, max_manana: 6, min_tarde: 5, max_tarde: 6, min_noche: 2, max_noche: 2
-    };
-    try {
-      const configResult = await db.execute("SELECT * FROM configuracion_global WHERE id = 'default'");
-      if (configResult.rows.length > 0) {
-        config = configResult.rows[0] as unknown as ConfiguracionGlobal;
-      }
-    } catch (e) {
-      console.warn('Config table missing, using defaults.', e);
-    }
-
-    // 3. Map Data for Algorithm
-    const staffMapped: StaffCSP[] = dbStaffList.map(s => {
-      let enabledTurnos: Exclude<Turno, 'Franco' | 'Vacio'>[] = [];
-      const rawOptions = s.modalidad_turno || s.turno_preferido || '';
-
-      if (rawOptions === 'MIXTO' || rawOptions === '') {
-        enabledTurnos = ['Mañana', 'Tarde', 'Noche'];
-      } else {
-        const letters = rawOptions.split(',').map(l => l.trim()).filter(Boolean);
-        if (letters.includes('M')) enabledTurnos.push('Mañana');
-        if (letters.includes('T')) enabledTurnos.push('Tarde');
-        if (letters.includes('N')) enabledTurnos.push('Noche');
-      }
-
-      return {
-        id: s.id,
-        nombre: s.nombre,
-        rol: s.rol,
-        turnosHabilitados: enabledTurnos,
-      };
-    }).filter(s => s.turnosHabilitados.length > 0);
-
-    // 4. Force Numbers on Config and Execute CSP Algorithm
-    const configCSP: ConfigCSP = {
-      francos_mes_corto: Number(config.francos_mes_corto) || 6,
-      francos_mes_largo: Number(config.francos_mes_largo) || 7,
-      min_manana: Number(config.min_manana) || 0,
-      max_manana: Number(config.max_manana) || 0,
-      min_tarde: Number(config.min_tarde) || 0,
-      max_tarde: Number(config.max_tarde) || 0,
-      min_noche: Number(config.min_noche) || 2, // Fallback vital para las noches
-      max_noche: Number(config.max_noche) || 2,
-    };
-
-    const diasDelMes = new Date(targetAnio, targetMes, 0).getDate();
-    let cspResult;
-    try {
-      cspResult = generarMatrizTurnos(staffMapped, configCSP, diasDelMes);
-    } catch (e: any) {
-      return requestEvent.fail(400, { message: e.message });
-    }
-
-    // 5. Persist Output in Turso
-    const batchStatements: any[] = [];
-    const targetMonthStr = `${targetAnio}-${String(targetMes).padStart(2, '0')}`;
-    const targetMonthFirstDay = `${targetMonthStr}-01`;
-    const targetMonthLastDay = `${targetMonthStr}-${String(diasDelMes).padStart(2, '0')}`;
-
-    // A) DELETE previous month data
-    batchStatements.push({
-      sql: "DELETE FROM turnos_asignados WHERE dia >= ? AND dia <= ?",
-      args: [targetMonthFirstDay, targetMonthLastDay]
-    });
-    batchStatements.push({
-      sql: "DELETE FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco'",
-      args: [targetMonthFirstDay, targetMonthLastDay]
-    });
-
-    // B) Iterate result and prepare INSERTs
-    for (const staffId in cspResult) {
-      const schedule = cspResult[staffId];
-      // Algorithm index 0 = dia 1
-      for (let dayIndex = 0; dayIndex < schedule.length && dayIndex < diasDelMes; dayIndex++) {
-        const diaInt = dayIndex + 1;
-        const fechaStr = `${targetMonthStr}-${String(diaInt).padStart(2, '0')}`;
-        const turnoToAssign: Turno = schedule[dayIndex];
-
-        if (turnoToAssign === 'Franco') {
-          // D) Add Franco rule
-          batchStatements.push({
-            sql: 'INSERT INTO reglas_disponibilidad (id, staff_id, fecha, tipo) VALUES (?, ?, ?, ?)',
-            args: [crypto.randomUUID(), staffId, fechaStr, 'Franco']
-          });
-        } else if (turnoToAssign === 'Mañana' || turnoToAssign === 'Tarde' || turnoToAssign === 'Noche') {
-          // C) Add Work Shift
-          batchStatements.push({
-            sql: 'INSERT INTO turnos_asignados (id, dia, turno, staff_id) VALUES (?, ?, ?, ?)',
-            args: [crypto.randomUUID(), fechaStr, turnoToAssign, staffId]
-          });
-        }
-      }
-    }
-
-    // E) Execute Batch
-    try {
-      await db.batch(batchStatements);
-      return { success: true, count: batchStatements.length };
-    } catch (e: any) {
-      console.error("Error CSP batch insert:", e);
-      return requestEvent.fail(500, { message: 'Error interno guardando la generación CSP.', error: e.message });
-    }
-  },
-  zod$({
-    anio: z.number().int().min(2000).max(2100),
-    mes: z.number().int().min(1).max(12)
-  })
-);
 
 export const useClearMonthAction = globalAction$(
   async (data, requestEvent) => {
@@ -556,9 +271,8 @@ export default component$(() => {
   const rules = useRulesLoader();
   const configData = useConfigLoader();
   const manageStaffAction = useManageStaffAction();
-  const autoGenerateAction = useAutoGenerateMonthAction();
-  const generateCSPAction = useGenerateScheduleAction();
   const clearMonthAction = useClearMonthAction();
+  const saveGeneratedAction = useSaveGeneratedRosterAction();
 
   const hoy = new Date();
   const paramAnio = loc.url.searchParams.get('anio');
@@ -702,9 +416,8 @@ export default component$(() => {
               mes={currentMes}
               anio={currentAnio}
               toggleAction={toggleShiftServer}
+              saveGeneratedAction={saveGeneratedAction}
               config={configData.value}
-              autoGenerateAction={autoGenerateAction}
-              generateCSPAction={generateCSPAction}
               clearMonthAction={clearMonthAction}
             />
           )}

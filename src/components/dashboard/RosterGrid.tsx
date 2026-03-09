@@ -1,6 +1,7 @@
 import { component$, useComputed$, $, useSignal, useTask$, useOnDocument } from '@builder.io/qwik';
 import type { ActionStore } from '@builder.io/qwik-city';
 import type { TurnoAsignado, Staff, ReglaDisponibilidad, ConfiguracionGlobal } from '../../types';
+import { type StaffCSP, type Turno, type ConfigCSP, generarMatrizTurnos } from '../../lib/scheduler';
 
 export interface RosterGridProps {
     staffList: Staff[];
@@ -9,8 +10,7 @@ export interface RosterGridProps {
     mes: number;
     anio: number;
     toggleAction: any; // Qwik City server$ function
-    autoGenerateAction: ActionStore<any, any, true>;
-    generateCSPAction: ActionStore<any, any, true>;
+    saveGeneratedAction: ActionStore<any, any, true>; // Qwik City globalAction$
     clearMonthAction: ActionStore<any, any, true>;
     config: ConfiguracionGlobal;
 }
@@ -44,6 +44,8 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
     // el useTask$ absorbe los cambios garantizando una fuente de verdad única sin lag.
     const localAssignments = useSignal([...props.assignments]);
     const localRules = useSignal([...props.rules]);
+    const isGeneratingClientSide = useSignal<boolean>(false);
+    const engineErrorClientSide = useSignal<string | null>(null);
 
     useTask$(({ track }) => {
         const serverAssigns = track(() => props.assignments);
@@ -293,17 +295,100 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
                 <div class="ml-auto flex items-center gap-3">
                     <button
-                        onClick$={() => {
+                        onClick$={async () => {
                             if (window.confirm('¿Estás seguro de que deseas automatizar y sobreescribir la planilla entera de este mes?')) {
-                                props.generateCSPAction.submit({ anio: props.anio, mes: props.mes });
+                                isGeneratingClientSide.value = true;
+                                engineErrorClientSide.value = null;
+
+                                // Allow UI to paint loading state briefly
+                                await new Promise(res => setTimeout(res, 50));
+
+                                try {
+                                    const staffMapped: StaffCSP[] = props.staffList.map(s => {
+                                      let enabledTurnos: Exclude<Turno, 'Franco' | 'Vacio'>[] = [];
+                                      const rawOptions = s.modalidad_turno || s.turno_preferido || '';
+                                
+                                      if (rawOptions === 'MIXTO' || rawOptions === '') {
+                                        enabledTurnos = ['Mañana', 'Tarde', 'Noche'];
+                                      } else {
+                                        const letters = rawOptions.split(',').map(l => l.trim()).filter(Boolean);
+                                        if (letters.includes('M')) enabledTurnos.push('Mañana');
+                                        if (letters.includes('T')) enabledTurnos.push('Tarde');
+                                        if (letters.includes('N')) enabledTurnos.push('Noche');
+                                      }
+                                
+                                      return {
+                                        id: s.id,
+                                        turnosHabilitados: enabledTurnos,
+                                      };
+                                    }).filter(s => s.turnosHabilitados.length > 0);
+
+                                    const configCSP: ConfigCSP = {
+                                      francos_mes_corto: Number(props.config.francos_mes_corto) || 6,
+                                      francos_mes_largo: Number(props.config.francos_mes_largo) || 7,
+                                      min_manana: Number(props.config.min_manana) || 0,
+                                      max_manana: Number(props.config.max_manana) || 0,
+                                      min_tarde: Number(props.config.min_tarde) || 0,
+                                      max_tarde: Number(props.config.max_tarde) || 0,
+                                      min_noche: Number(props.config.min_noche) || 2,
+                                      max_noche: Number(props.config.max_noche) || 2,
+                                    };
+
+                                    const diasDelMesClient = diasDelMes.value;
+                                    
+                                    // 🚀 COMPUTE INTENSIVE LOAD HAPPENS HERE (User's Browser)
+                                    const cspResult = generarMatrizTurnos(staffMapped, configCSP, diasDelMesClient);
+                                    
+                                    // Map computed matrix to Flat Array for dumb insert
+                                    const payloadAsignaciones: { staff_id: string, dia: string, turno: string }[] = [];
+                                    const newLocalAssigns: TurnoAsignado[] = [];
+                                    const newLocalRules: ReglaDisponibilidad[] = [];
+
+                                    const targetMonthStr = `${props.anio}-${String(props.mes).padStart(2, '0')}`;
+
+                                    for (const staffId in cspResult) {
+                                      const schedule = cspResult[staffId];
+                                      for (let dayIndex = 0; dayIndex < schedule.length && dayIndex < diasDelMesClient; dayIndex++) {
+                                        const diaInt = dayIndex + 1;
+                                        const dateString = `${targetMonthStr}-${String(diaInt).padStart(2, '0')}`;
+                                        const rTurno = schedule[dayIndex];
+
+                                        payloadAsignaciones.push({ staff_id: staffId, dia: dateString, turno: rTurno });
+
+                                        // Push directly to signals for optimistic painting
+                                        if (rTurno === 'Franco') {
+                                          newLocalRules.push({ fecha: dateString, tipo: 'Franco', staff_id: staffId } as any);
+                                        } else if (rTurno !== 'Vacio') {
+                                          newLocalAssigns.push({ dia: dateString, turno: rTurno, staff_id: staffId } as any);
+                                        }
+                                      }
+                                    }
+
+                                    // Local Optimistic Update
+                                    localAssignments.value = newLocalAssigns;
+                                    localRules.value = newLocalRules;
+
+                                    // Sync entirely computed block via Dumb Insert
+                                    props.saveGeneratedAction.submit({
+                                      anio: props.anio,
+                                      mes: props.mes,
+                                      asignaciones: payloadAsignaciones
+                                    });
+
+                                } catch (e: any) {
+                                    engineErrorClientSide.value = e.message;
+                                    console.error("Motor CSP Error:", e);
+                                } finally {
+                                    isGeneratingClientSide.value = false;
+                                }
                             }
                         }}
-                        disabled={props.generateCSPAction.isRunning}
-                        title="Generar la planilla óptima automáticamente"
+                        disabled={isGeneratingClientSide.value}
+                        title="Generar la planilla óptima automáticamente usando la computadora local"
                         class="px-3 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/50 shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         type="button"
                     >
-                        {props.generateCSPAction.isRunning ? 'Generando...' : '✨ Auto-Generar'}
+                        {isGeneratingClientSide.value ? 'Generando (Client-Side)...' : '✨ Auto-Generar'}
                     </button>
                     <button
                         onClick$={() => {
@@ -335,13 +420,90 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
 
                         <div class="flex flex-col sm:flex-row gap-3">
                             <button
-                                onClick$={() => {
-                                    props.generateCSPAction.submit({ anio: props.anio, mes: props.mes });
+                                onClick$={async () => {
+                                    isGeneratingClientSide.value = true;
+                                    engineErrorClientSide.value = null;
+
+                                    // Drop browser thread
+                                    await new Promise(res => setTimeout(res, 50));
+
+                                    try {
+                                        const staffMapped: StaffCSP[] = props.staffList.map(s => {
+                                          let enabledTurnos: Exclude<Turno, 'Franco' | 'Vacio'>[] = [];
+                                          const rawOptions = s.modalidad_turno || s.turno_preferido || '';
+                                    
+                                          if (rawOptions === 'MIXTO' || rawOptions === '') {
+                                            enabledTurnos = ['Mañana', 'Tarde', 'Noche'];
+                                          } else {
+                                            const letters = rawOptions.split(',').map(l => l.trim()).filter(Boolean);
+                                            if (letters.includes('M')) enabledTurnos.push('Mañana');
+                                            if (letters.includes('T')) enabledTurnos.push('Tarde');
+                                            if (letters.includes('N')) enabledTurnos.push('Noche');
+                                          }
+                                          return { id: s.id, turnosHabilitados: enabledTurnos };
+                                        }).filter(s => s.turnosHabilitados.length > 0);
+
+                                        const configCSP: ConfigCSP = {
+                                          francos_mes_corto: Number(props.config.francos_mes_corto) || 6,
+                                          francos_mes_largo: Number(props.config.francos_mes_largo) || 7,
+                                          min_manana: Number(props.config.min_manana) || 0,
+                                          max_manana: Number(props.config.max_manana) || 0,
+                                          min_tarde: Number(props.config.min_tarde) || 0,
+                                          max_tarde: Number(props.config.max_tarde) || 0,
+                                          min_noche: Number(props.config.min_noche) || 2,
+                                          max_noche: Number(props.config.max_noche) || 2,
+                                        };
+
+                                        const diasDelMesClient = diasDelMes.value;
+                                        
+                                        const cspResult = generarMatrizTurnos(staffMapped, configCSP, diasDelMesClient);
+                                        
+                                        const payloadAsignaciones: { staff_id: string, dia: string, turno: string }[] = [];
+                                        // Filtrar los assignments base (preservar licencias/no francos)
+                                        const newLocalAssigns: TurnoAsignado[] = [];
+                                        const newLocalRules: ReglaDisponibilidad[] = [...localRules.value.filter(r => r.tipo !== 'Franco')];
+                                        
+                                        const targetMonthStr = `${props.anio}-${String(props.mes).padStart(2, '0')}`;
+
+                                        for (const staffId in cspResult) {
+                                          const schedule = cspResult[staffId];
+                                          for (let dayIndex = 0; dayIndex < schedule.length && dayIndex < diasDelMesClient; dayIndex++) {
+                                            const diaInt = dayIndex + 1;
+                                            const dateString = `${targetMonthStr}-${String(diaInt).padStart(2, '0')}`;
+                                            const rTurno = schedule[dayIndex];
+
+                                            payloadAsignaciones.push({ staff_id: staffId, dia: dateString, turno: rTurno });
+                                            if (rTurno === 'Franco') {
+                                              newLocalRules.push({ fecha: dateString, tipo: 'Franco', staff_id: staffId } as any);
+                                            } else if (rTurno !== 'Vacio') {
+                                              newLocalAssigns.push({ dia: dateString, turno: rTurno, staff_id: staffId } as any);
+                                            }
+                                          }
+                                        }
+
+                                        // Estado optimista (asegura visualización antes del loader refetch)
+                                        localAssignments.value = newLocalAssigns;
+                                        localRules.value = newLocalRules;
+
+                                        // La ejecución the saveGeneratedAction fuerza un refetch automático de QwikCity
+                                        // sobre `props.assignments` que purgará sincronizadamente todos los loaders.
+                                        props.saveGeneratedAction.submit({
+                                          anio: props.anio,
+                                          mes: props.mes,
+                                          asignaciones: payloadAsignaciones
+                                        });
+
+                                    } catch (e: any) {
+                                        engineErrorClientSide.value = e.message;
+                                        console.error("Motor CSP Error:", e);
+                                    } finally {
+                                        isGeneratingClientSide.value = false;
+                                    }
                                 }}
-                                disabled={props.generateCSPAction.isRunning}
+                                disabled={isGeneratingClientSide.value || props.saveGeneratedAction.isRunning}
                                 class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {props.generateCSPAction.isRunning ? (
+                                {isGeneratingClientSide.value || props.saveGeneratedAction.isRunning ? (
                                     <>
                                         <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                         <span>Calculando cuadrante...</span>
@@ -358,9 +520,9 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                             </button>
                         </div>
 
-                        {props.generateCSPAction.value?.failed && (
-                            <div class="mt-6 p-3 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-sm font-medium rounded-lg inline-block border border-rose-200 dark:border-rose-800">
-                                {props.generateCSPAction.value.message}
+                        {engineErrorClientSide.value && (
+                            <div class="mt-6 p-3 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-sm font-medium rounded-lg inline-block border border-rose-200 dark:border-rose-800 max-w-lg">
+                                {engineErrorClientSide.value}
                             </div>
                         )}
                     </div>
