@@ -119,7 +119,7 @@ export const useManageStaffAction = globalAction$(
 );
 
 // Toggle Shift Manual Server Function
-export const toggleShiftServer = server$(async function(data: { staff_id: string, fecha: string, tipo_asignacion: string }) {
+export const toggleShiftServer = server$(async function (data: { staff_id: string, fecha: string, tipo_asignacion: string }) {
   const db = getDbClient(this.env);
 
   // Primero borramos cualquier asignación o regla existente para ese empleado en ese día
@@ -190,7 +190,7 @@ export const useSaveGeneratedRosterAction = globalAction$(
   zod$({
     anio: z.number().int().min(2000).max(2100),
     mes: z.number().int().min(1).max(12),
-    asignaciones: z.any() 
+    asignaciones: z.any()
   })
 );
 
@@ -353,6 +353,7 @@ export default component$(() => {
             <Link
               href={`?anio=${currentAnio - 1}&mes=${currentMes}`}
               class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+              prefetch={false}
               title="Año anterior"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
@@ -369,6 +370,7 @@ export default component$(() => {
                 <Link
                   key={m}
                   href={`?anio=${currentAnio}&mes=${m}`}
+                  prefetch={false}
                   class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${isSelected
                     ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
