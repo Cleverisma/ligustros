@@ -20,16 +20,19 @@ export const useMobileScheduleLoader = routeLoader$(async (requestEvent) => {
     const anio = anioParam ? parseInt(anioParam) : hoy.getFullYear();
     const mes = mesParam ? parseInt(mesParam) : hoy.getMonth() + 1;
     const targetMonthStr = `${anio}-${String(mes).padStart(2, '0')}`;
+    const daysInMonth = new Date(anio, mes, 0).getDate();
+    const firstDay = `${targetMonthStr}-01`;
+    const lastDay = `${targetMonthStr}-${String(daysInMonth).padStart(2, '0')}`;
 
     // Use a batch query for performance
     const results = await db.batch([
         {
-            sql: `SELECT * FROM turnos_asignados WHERE strftime('%Y-%m', dia) = ? ORDER BY dia ASC`,
-            args: [targetMonthStr]
+            sql: `SELECT * FROM turnos_asignados WHERE dia >= ? AND dia <= ? ORDER BY dia ASC`,
+            args: [firstDay, lastDay]
         },
         {
-            sql: `SELECT * FROM reglas_disponibilidad WHERE strftime('%Y-%m', fecha) = ? AND tipo = 'Franco' ORDER BY fecha ASC`,
-            args: [targetMonthStr]
+            sql: `SELECT * FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco' ORDER BY fecha ASC`,
+            args: [firstDay, lastDay]
         }
     ]);
 

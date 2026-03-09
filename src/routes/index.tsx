@@ -1,5 +1,5 @@
 import { component$, useSignal, $, useVisibleTask$ } from '@builder.io/qwik';
-import { routeLoader$, globalAction$, zod$, z, type DocumentHead, useLocation, Link } from '@builder.io/qwik-city';
+import { routeLoader$, globalAction$, server$, zod$, z, type DocumentHead, useLocation, Link } from '@builder.io/qwik-city';
 import { getDbClient } from '../server/db/turso';
 import { StaffManager } from '../components/dashboard/StaffManager';
 import { RosterGrid } from '../components/dashboard/RosterGrid';
@@ -40,14 +40,17 @@ export const useAssignmentsLoader = routeLoader$(async (requestEvent) => {
   const anio = anioParam ? parseInt(anioParam) : hoy.getFullYear();
   const mes = mesParam ? parseInt(mesParam) : hoy.getMonth() + 1;
   const targetMonthStr = `${anio}-${String(mes).padStart(2, '0')}`;
+  const daysInMonth = new Date(anio, mes, 0).getDate();
+  const firstDay = `${targetMonthStr}-01`;
+  const lastDay = `${targetMonthStr}-${String(daysInMonth).padStart(2, '0')}`;
 
   const result = await db.execute({
     sql: `
       SELECT * FROM turnos_asignados 
-      WHERE strftime('%Y-%m', dia) = ? 
+      WHERE dia >= ? AND dia <= ? 
       ORDER BY dia ASC
     `,
-    args: [targetMonthStr]
+    args: [firstDay, lastDay]
   });
   return result.rows as unknown as TurnoAsignado[];
 });
@@ -62,13 +65,16 @@ export const useRulesLoader = routeLoader$(async (requestEvent) => {
   const anio = anioParam ? parseInt(anioParam) : hoy.getFullYear();
   const mes = mesParam ? parseInt(mesParam) : hoy.getMonth() + 1;
   const targetMonthStr = `${anio}-${String(mes).padStart(2, '0')}`;
+  const daysInMonth = new Date(anio, mes, 0).getDate();
+  const firstDay = `${targetMonthStr}-01`;
+  const lastDay = `${targetMonthStr}-${String(daysInMonth).padStart(2, '0')}`;
 
   const result = await db.execute({
     sql: `
       SELECT * FROM reglas_disponibilidad
-      WHERE strftime('%Y-%m', fecha) = ?
+      WHERE fecha >= ? AND fecha <= ?
     `,
-    args: [targetMonthStr]
+    args: [firstDay, lastDay]
   });
   return result.rows as unknown as ReglaDisponibilidad[];
 });
@@ -113,38 +119,31 @@ export const useManageStaffAction = globalAction$(
   })
 );
 
-// Toggle Shift Manual Action
-export const useToggleShiftAction = globalAction$(
-  async (data, requestEvent) => {
-    const db = getDbClient(requestEvent.env);
+// Toggle Shift Manual Server Function
+export const toggleShiftServer = server$(async function(data: { staff_id: string, fecha: string, tipo_asignacion: string }) {
+  const db = getDbClient(this.env);
 
-    // Primero borramos cualquier asignación o regla existente para ese empleado en ese día
-    await db.batch([
-      { sql: 'DELETE FROM turnos_asignados WHERE staff_id = ? AND dia = ?', args: [data.staff_id, data.fecha] },
-      { sql: 'DELETE FROM reglas_disponibilidad WHERE staff_id = ? AND fecha = ?', args: [data.staff_id, data.fecha] }
-    ]);
+  // Primero borramos cualquier asignación o regla existente para ese empleado en ese día
+  await db.batch([
+    { sql: 'DELETE FROM turnos_asignados WHERE staff_id = ? AND dia = ?', args: [data.staff_id, data.fecha] },
+    { sql: 'DELETE FROM reglas_disponibilidad WHERE staff_id = ? AND fecha = ?', args: [data.staff_id, data.fecha] }
+  ]);
 
-    if (data.tipo_asignacion === 'Mañana' || data.tipo_asignacion === 'Tarde' || data.tipo_asignacion === 'Noche') {
-      await db.execute(
-        'INSERT INTO turnos_asignados (id, dia, turno, staff_id) VALUES (?, ?, ?, ?)',
-        [crypto.randomUUID(), data.fecha, data.tipo_asignacion, data.staff_id]
-      );
-    } else if (data.tipo_asignacion === 'Franco') {
-      await db.execute(
-        'INSERT INTO reglas_disponibilidad (id, staff_id, fecha, tipo) VALUES (?, ?, ?, ?)',
-        [crypto.randomUUID(), data.staff_id, data.fecha, 'Franco']
-      );
-    }
-    // Si es 'Vacío', simplemente se queda borrado
+  if (data.tipo_asignacion === 'Mañana' || data.tipo_asignacion === 'Tarde' || data.tipo_asignacion === 'Noche') {
+    await db.execute(
+      'INSERT INTO turnos_asignados (id, dia, turno, staff_id) VALUES (?, ?, ?, ?)',
+      [crypto.randomUUID(), data.fecha, data.tipo_asignacion, data.staff_id]
+    );
+  } else if (data.tipo_asignacion === 'Franco') {
+    await db.execute(
+      'INSERT INTO reglas_disponibilidad (id, staff_id, fecha, tipo) VALUES (?, ?, ?, ?)',
+      [crypto.randomUUID(), data.staff_id, data.fecha, 'Franco']
+    );
+  }
+  // Si es 'Vacío', simplemente se queda borrado
 
-    return { success: true };
-  },
-  zod$({
-    staff_id: z.string(),
-    fecha: z.string(),
-    tipo_asignacion: z.enum(['Mañana', 'Tarde', 'Noche', 'Franco', 'Vacío'])
-  })
-);
+  return { success: true };
+});
 
 export const ThemeToggle = component$(() => {
   const isDark = useSignal<boolean>(false);
@@ -341,14 +340,16 @@ export const useAutoGenerateMonthAction = globalAction$(
 
     // --- EXECUTE BATCH DB ---
     const batchStatements: any[] = [];
+    const targetMonthFirstDay = `${targetMonthStr}-01`;
+    const targetMonthLastDay = `${targetMonthStr}-${String(diasDelMes).padStart(2, '0')}`;
 
     batchStatements.push({
-      sql: "DELETE FROM turnos_asignados WHERE strftime('%Y-%m', dia) = ?",
-      args: [targetMonthStr]
+      sql: "DELETE FROM turnos_asignados WHERE dia >= ? AND dia <= ?",
+      args: [targetMonthFirstDay, targetMonthLastDay]
     });
     batchStatements.push({
-      sql: "DELETE FROM reglas_disponibilidad WHERE strftime('%Y-%m', fecha) = ? AND tipo = 'Franco'",
-      args: [targetMonthStr]
+      sql: "DELETE FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco'",
+      args: [targetMonthFirstDay, targetMonthLastDay]
     });
 
     staffList.forEach(staff => {
@@ -461,15 +462,17 @@ export const useGenerateScheduleAction = globalAction$(
     // 5. Persist Output in Turso
     const batchStatements: any[] = [];
     const targetMonthStr = `${targetAnio}-${String(targetMes).padStart(2, '0')}`;
+    const targetMonthFirstDay = `${targetMonthStr}-01`;
+    const targetMonthLastDay = `${targetMonthStr}-${String(diasDelMes).padStart(2, '0')}`;
 
     // A) DELETE previous month data
     batchStatements.push({
-      sql: "DELETE FROM turnos_asignados WHERE strftime('%Y-%m', dia) = ?",
-      args: [targetMonthStr]
+      sql: "DELETE FROM turnos_asignados WHERE dia >= ? AND dia <= ?",
+      args: [targetMonthFirstDay, targetMonthLastDay]
     });
     batchStatements.push({
-      sql: "DELETE FROM reglas_disponibilidad WHERE strftime('%Y-%m', fecha) = ? AND tipo = 'Franco'",
-      args: [targetMonthStr]
+      sql: "DELETE FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco'",
+      args: [targetMonthFirstDay, targetMonthLastDay]
     });
 
     // B) Iterate result and prepare INSERTs
@@ -512,6 +515,39 @@ export const useGenerateScheduleAction = globalAction$(
   })
 );
 
+export const useClearMonthAction = globalAction$(
+  async (data, requestEvent) => {
+    const db = getDbClient(requestEvent.env);
+    const targetMonthStr = `${data.anio}-${String(data.mes).padStart(2, '0')}`;
+    const daysInMonth = new Date(data.anio, data.mes, 0).getDate();
+    const firstDay = `${targetMonthStr}-01`;
+    const lastDay = `${targetMonthStr}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const batchStatements: any[] = [
+      {
+        sql: "DELETE FROM turnos_asignados WHERE dia >= ? AND dia <= ?",
+        args: [firstDay, lastDay]
+      },
+      {
+        sql: "DELETE FROM reglas_disponibilidad WHERE fecha >= ? AND fecha <= ? AND tipo = 'Franco'",
+        args: [firstDay, lastDay]
+      }
+    ];
+
+    try {
+      await db.batch(batchStatements);
+      return { success: true, count: batchStatements.length };
+    } catch (e: any) {
+      console.error("Error clearing month:", e);
+      return requestEvent.fail(500, { message: 'Error interno al borrar la planilla.', error: e.message });
+    }
+  },
+  zod$({
+    anio: z.number().int().min(2000).max(2100),
+    mes: z.number().int().min(1).max(12)
+  })
+);
+
 // Main Dashboard Page
 export default component$(() => {
   const loc = useLocation();
@@ -520,9 +556,9 @@ export default component$(() => {
   const rules = useRulesLoader();
   const configData = useConfigLoader();
   const manageStaffAction = useManageStaffAction();
-  const toggleShiftAction = useToggleShiftAction();
   const autoGenerateAction = useAutoGenerateMonthAction();
   const generateCSPAction = useGenerateScheduleAction();
+  const clearMonthAction = useClearMonthAction();
 
   const hoy = new Date();
   const paramAnio = loc.url.searchParams.get('anio');
@@ -665,10 +701,11 @@ export default component$(() => {
               rules={rules.value}
               mes={currentMes}
               anio={currentAnio}
-              toggleAction={toggleShiftAction}
+              toggleAction={toggleShiftServer}
               config={configData.value}
               autoGenerateAction={autoGenerateAction}
               generateCSPAction={generateCSPAction}
+              clearMonthAction={clearMonthAction}
             />
           )}
         </main>
