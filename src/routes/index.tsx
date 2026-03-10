@@ -385,6 +385,7 @@ export default component$(() => {
               href={`?anio=${currentAnio + 1}&mes=${currentMes}`}
               class="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
               title="Año siguiente"
+              prefetch={false}
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </Link>
