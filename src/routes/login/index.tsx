@@ -1,15 +1,25 @@
 import { component$ } from '@builder.io/qwik';
 import { Form, globalAction$, zod$, z, type DocumentHead } from '@builder.io/qwik-city';
+import { tursoClient } from '../../utils/turso';
 
 export const useLoginAction = globalAction$(
   async ({ codigo }, requestEvent) => {
-    const passphrase = requestEvent.env.get('ADMIN_PASSPHRASE');
-
-    if (!passphrase) {
-        console.warn('ADMIN_PASSPHRASE is not set in environment variables');
+    let isValid = false;
+    try {
+      const db = tursoClient(requestEvent);
+      const result = await db.execute({
+        sql: "SELECT valor FROM configuracion WHERE clave = 'admin_passphrase' LIMIT 1",
+        args: [],
+      });
+      const row = result.rows[0];
+      if (row && row.valor === codigo) {
+        isValid = true;
+      }
+    } catch (e) {
+      console.error('[login] Error consultando la base de datos:', e);
     }
 
-    if (codigo === passphrase) {
+    if (isValid) {
       requestEvent.cookie.set('admin_session', 'authenticated_admin', {
         httpOnly: true,
         secure: true,
@@ -27,6 +37,8 @@ export const useLoginAction = globalAction$(
     codigo: z.string().min(1, 'Ingresa el código de acceso')
   })
 );
+
+
 
 export default component$(() => {
   const action = useLoginAction();

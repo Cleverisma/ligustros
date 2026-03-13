@@ -1,6 +1,7 @@
 import { component$, useSignal } from '@builder.io/qwik';
 import { routeLoader$, routeAction$, zod$, z, Form, type DocumentHead } from '@builder.io/qwik-city';
 import { getDbClient } from '../../server/db/turso';
+import { tursoClient } from '../../utils/turso';
 import type { ConfiguracionGlobal } from '../../types';
 
 export const useConfigGlobalLoader = routeLoader$(async (requestEvent) => {
@@ -78,16 +79,53 @@ export const useUpdateConfigAction = routeAction$(
     zod$(configSchema)
 );
 
+export const useUpdatePassphraseAction = routeAction$(
+    async ({ claveActual, nuevaClave }, requestEvent) => {
+        try {
+            const db = tursoClient(requestEvent);
+            // 1. Verify current passphrase
+            const check = await db.execute({
+                sql: "SELECT valor FROM configuracion WHERE clave = 'admin_passphrase' LIMIT 1",
+                args: [],
+            });
+            const row = check.rows[0];
+            if (!row || row.valor !== claveActual) {
+                return requestEvent.fail(401, { message: 'El código actual es incorrecto' });
+            }
+            // 2. Update to new passphrase
+            await db.execute({
+                sql: "UPDATE configuracion SET valor = ? WHERE clave = 'admin_passphrase'",
+                args: [nuevaClave],
+            });
+            return { success: true, message: 'Código actualizado correctamente' };
+        } catch (e: any) {
+            console.error('[configuracion] Error actualizando passphrase:', e);
+            return requestEvent.fail(500, { message: e?.message ?? 'Error al actualizar el código' });
+        }
+    },
+    zod$({
+        claveActual: z.string().min(1, 'Ingresá el código actual'),
+        nuevaClave: z.string().min(4, 'El nuevo código debe tener al menos 4 caracteres'),
+    })
+);
+
+
+
 export default component$(() => {
     const configData = useConfigGlobalLoader();
     const updateAction = useUpdateConfigAction();
+    const passphraseAction = useUpdatePassphraseAction();
     const config = configData.value;
     const showSuccess = useSignal(false);
+    const showPassSuccess = useSignal(false);
 
-    // Effect to briefly show success message
     if (updateAction.value?.success && !updateAction.isRunning && !showSuccess.value) {
         showSuccess.value = true;
         setTimeout(() => { showSuccess.value = false; }, 3000);
+    }
+    if (passphraseAction.value?.success && !passphraseAction.isRunning && !showPassSuccess.value) {
+        showPassSuccess.value = true;
+        setTimeout(() => { showPassSuccess.value = false; }, 3000);
     }
 
     return (
@@ -236,10 +274,71 @@ export default component$(() => {
                         </button>
                     </div>
                 </Form>
+
+                {/* Código de acceso */}
+                <Form action={passphraseAction} class="pb-8">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-800 transition-colors">
+                        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center gap-3 transition-colors">
+                            <div class="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center">
+                                <svg class="w-4 h-4 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                            </div>
+                            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Código de Acceso</h2>
+                        </div>
+                        <div class="p-6 space-y-5">
+                            <div>
+                                <label for="claveActual" class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Código Actual</label>
+                                <input
+                                    type="password"
+                                    id="claveActual"
+                                    name="claveActual"
+                                    class="w-full max-w-sm rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-slate-900 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition-colors"
+                                    placeholder="Tu código actual"
+                                    required
+                                />
+                                {passphraseAction.value?.fieldErrors?.claveActual && (
+                                    <p class="text-rose-500 text-xs mt-1">{passphraseAction.value.fieldErrors.claveActual}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label for="nuevaClave" class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Nuevo Código</label>
+                                <input
+                                    type="password"
+                                    id="nuevaClave"
+                                    name="nuevaClave"
+                                    class="w-full max-w-sm rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-slate-900 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition-colors"
+                                    placeholder="Mínimo 4 caracteres"
+                                    minLength={4}
+                                    required
+                                />
+                                {passphraseAction.value?.fieldErrors?.nuevaClave && (
+                                    <p class="text-rose-500 text-xs mt-1">{passphraseAction.value.fieldErrors.nuevaClave}</p>
+                                )}
+                            </div>
+                            {showPassSuccess.value && (
+                                <div class="bg-emerald-50 dark:bg-emerald-900/30 border-l-4 border-emerald-500 p-3 rounded-r-lg text-emerald-800 dark:text-emerald-300 font-medium text-sm">
+                                    {passphraseAction.value?.message}
+                                </div>
+                            )}
+                            {passphraseAction.value?.failed && (
+                                <div class="bg-rose-50 dark:bg-rose-900/30 border-l-4 border-rose-500 p-3 rounded-r-lg text-rose-700 dark:text-rose-300 text-sm">
+                                    {passphraseAction.value.message}
+                                </div>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={passphraseAction.isRunning}
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {passphraseAction.isRunning ? 'Guardando...' : 'Actualizar Código'}
+                            </button>
+                        </div>
+                    </div>
+                </Form>
             </main>
         </div>
     );
 });
+
 
 export const head: DocumentHead = {
     title: 'Configuración de Reglas | Ligustros Sync',
