@@ -1,6 +1,7 @@
 import { component$, useComputed$, $, useSignal, useTask$, useOnDocument } from '@builder.io/qwik';
 import type { ActionStore } from '@builder.io/qwik-city';
 import { type TurnoAsignado, type Staff, type ReglaDisponibilidad, type ConfiguracionGlobal } from '../../types';
+import { type StaffCSP, type Turno, type ConfigCSP, generarMatrizTurnos } from '../../lib/scheduler';
 
 export interface RosterGridProps {
     staffList: Staff[];
@@ -43,6 +44,8 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
     // el useTask$ absorbe los cambios garantizando una fuente de verdad única sin lag.
     const localAssignments = useSignal([...props.assignments]);
     const localRules = useSignal([...props.rules]);
+    const isGeneratingClientSide = useSignal<boolean>(false);
+    const engineErrorClientSide = useSignal<string | null>(null);
 
     useTask$(({ track }) => {
         const serverAssigns = track(() => props.assignments);
@@ -166,13 +169,13 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
     // Detectar globalmente si hay alguna violación de descanso o francos en la tabla actual
     const hasViolations = useComputed$(() => {
         const hasRestViolations = dataComputed.value.rows.some(r => Object.values(r.cells).some(c => c.isViolation));
-        
+
         // Únicamente mostramos error de francos si *todo el mes* ya fue asignado (no quedan Vacíos)
-        const isMonthComplete = dataComputed.value.rows.every(r => 
+        const isMonthComplete = dataComputed.value.rows.every(r =>
             Object.values(r.cells).every(c => c.state !== 'Vacío')
         );
         const hasFrancoViolations = isMonthComplete && dataComputed.value.rows.some(r => !r.francosCorrectos);
-        
+
         return { hasRestViolations, hasFrancoViolations };
     });
 
@@ -223,17 +226,17 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
             .toUpperCase();
 
         const turnoColor: Record<string, string> = {
-            'Mañana':  '#d1fae5',
-            'Tarde':   '#ffedd5',
-            'Noche':   '#e0e7ff',
-            'Franco':  '#f1f5f9',
-            'Vacío':   '#ffffff',
+            'Mañana': '#d1fae5',
+            'Tarde': '#ffedd5',
+            'Noche': '#e0e7ff',
+            'Franco': '#f1f5f9',
+            'Vacío': '#ffffff',
         };
 
         const getCellValue = (state: string) => {
             if (state === 'Mañana') return 'M';
-            if (state === 'Tarde')  return 'T';
-            if (state === 'Noche')  return 'N';
+            if (state === 'Tarde') return 'T';
+            if (state === 'Noche') return 'N';
             if (state === 'Franco') return 'F';
             return '';
         };
@@ -401,12 +404,100 @@ export const RosterGrid = component$<RosterGridProps>((props) => {
                         <p class="text-slate-500 dark:text-slate-400 max-w-sm mb-8">
                             Comenzá asignando turnos en la planilla en blanco usando las herramientas de arriba.
                         </p>
-                        <button
-                            onClick$={() => isEmptyStateDismissed.value = true}
-                            class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all"
-                        >
-                            Comenzar en blanco
-                        </button>
+                        <div class="flex flex-col items-center gap-4">
+                            <div class="flex flex-col sm:flex-row items-center gap-4">
+                                <button
+                                    onClick$={async () => {
+                                        if (window.confirm('¿Estás seguro de que deseas automatizar y sobreescribir la planilla entera de este mes?')) {
+                                            isGeneratingClientSide.value = true;
+                                            engineErrorClientSide.value = null;
+                                            await new Promise(res => setTimeout(res, 50));
+                                            try {
+                                                const staffMapped: StaffCSP[] = props.staffList.map(s => {
+                                                    let enabledTurnos: Exclude<Turno, 'Franco' | 'Vacio'>[] = [];
+                                                    const rawOptions = s.modalidad_turno || s.turno_preferido || '';
+                                                    if (rawOptions === 'MIXTO' || rawOptions === '') {
+                                                        enabledTurnos = ['Mañana', 'Tarde', 'Noche'];
+                                                    } else {
+                                                        const letters = rawOptions.split(',').map(l => l.trim()).filter(Boolean);
+                                                        if (letters.includes('M')) enabledTurnos.push('Mañana');
+                                                        if (letters.includes('T')) enabledTurnos.push('Tarde');
+                                                        if (letters.includes('N')) enabledTurnos.push('Noche');
+                                                    }
+                                                    return { id: s.id, turnosHabilitados: enabledTurnos };
+                                                }).filter(s => s.turnosHabilitados.length > 0);
+
+                                                const configCSP: ConfigCSP = {
+                                                    francos_mes_corto: Number(props.config.francos_mes_corto) || 6,
+                                                    francos_mes_largo: Number(props.config.francos_mes_largo) || 7,
+                                                    min_manana: Number(props.config.min_manana) || 0,
+                                                    max_manana: Number(props.config.max_manana) || 0,
+                                                    min_tarde: Number(props.config.min_tarde) || 0,
+                                                    max_tarde: Number(props.config.max_tarde) || 0,
+                                                    min_noche: Number(props.config.min_noche) || 2,
+                                                    max_noche: Number(props.config.max_noche) || 2,
+                                                };
+
+                                                const diasDelMesClient = diasDelMes.value;
+                                                const cspResult = generarMatrizTurnos(staffMapped, configCSP, diasDelMesClient);
+
+                                                const payloadAsignaciones: { staff_id: string, dia: string, turno: string }[] = [];
+                                                const newLocalAssigns: any[] = [];
+                                                const newLocalRules: any[] = [];
+                                                const targetMonthStr = `${props.anio}-${String(props.mes).padStart(2, '0')}`;
+
+                                                for (const staffId in cspResult) {
+                                                    const schedule = cspResult[staffId];
+                                                    for (let dayIndex = 0; dayIndex < schedule.length && dayIndex < diasDelMesClient; dayIndex++) {
+                                                        const diaInt = dayIndex + 1;
+                                                        const dateString = `${targetMonthStr}-${String(diaInt).padStart(2, '0')}`;
+                                                        const rTurno = schedule[dayIndex];
+
+                                                        payloadAsignaciones.push({ staff_id: staffId, dia: dateString, turno: rTurno });
+                                                        if (rTurno === 'Franco') {
+                                                            newLocalRules.push({ fecha: dateString, tipo: 'Franco', staff_id: staffId });
+                                                        } else if (rTurno !== 'Vacio') {
+                                                            newLocalAssigns.push({ dia: dateString, turno: rTurno, staff_id: staffId });
+                                                        }
+                                                    }
+                                                }
+
+                                                localAssignments.value = newLocalAssigns;
+                                                localRules.value = newLocalRules;
+
+                                                props.saveGeneratedAction.submit({
+                                                    anio: props.anio,
+                                                    mes: props.mes,
+                                                    asignaciones: payloadAsignaciones
+                                                });
+
+                                            } catch (e: any) {
+                                                engineErrorClientSide.value = e.message;
+                                                console.error("Motor CSP Error:", e);
+                                            } finally {
+                                                isGeneratingClientSide.value = false;
+                                            }
+                                        }
+                                    }}
+                                    disabled={isGeneratingClientSide.value}
+                                    class="inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    type="button"
+                                >
+                                    {isGeneratingClientSide.value ? 'Generando...' : '✨ Generar Mes Automáticamente'}
+                                </button>
+                                <button
+                                    onClick$={() => isEmptyStateDismissed.value = true}
+                                    class="inline-flex items-center justify-center px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all"
+                                >
+                                    Comenzar en blanco
+                                </button>
+                            </div>
+                            {engineErrorClientSide.value && (
+                                <div class="mt-4 p-4 bg-rose-50 text-rose-700 rounded-lg max-w-lg border border-rose-200 text-sm">
+                                    <strong>No se pudo encontrar una asignación válida:</strong> {engineErrorClientSide.value}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ) : (
                     <div id="roster-export-area" class="w-max min-w-full bg-white dark:bg-slate-900 p-2 transition-colors">
